@@ -1,2 +1,14 @@
 skills/
 node_modules/
+swc-local/
+.next/
+.env
+.env.local
+.env.*.local
+*.log
+worklog.md
+agent-ctx/
+tsconfig.tsbuildinfo
+upload/
+download/
+*.tsbuildinfo
