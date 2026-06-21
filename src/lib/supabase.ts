@@ -20,11 +20,12 @@ function getBrowserClient(): SupabaseClient {
   return _client;
 }
 
-// Lazy proxy — avoids build-time crash when env vars are absent
+// Lazy proxy — avoids build-time crash when env vars are absent.
+// Cast through `unknown` so TS allows indexing into SupabaseClient.
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
     const client = getBrowserClient();
-    const value: unknown = (client as Record<PropertyKey, unknown>)[prop as PropertyKey];
+    const value = (client as unknown as Record<PropertyKey, unknown>)[prop];
     return typeof value === "function"
       ? (value as (...args: unknown[]) => unknown).bind(client)
       : value;
