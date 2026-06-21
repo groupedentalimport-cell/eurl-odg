@@ -1,12 +1,13 @@
 "use client";
 import { Phone, Mail, MapPin, Clock, Facebook, Instagram, Linkedin } from "lucide-react";
-import { COMPANY } from "@/lib/types";
+import { useCompanyInfo } from "@/lib/settings-service";
 import { useTranslation } from "@/lib/i18n";
 import { useData } from "@/lib/data-service";
 import { navigate } from "@/lib/router";
 
 export function Footer() {
   const { t, lang } = useTranslation();
+  const COMPANY = useCompanyInfo();
   const { categories } = useData();
 
   return (

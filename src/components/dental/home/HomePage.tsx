@@ -22,8 +22,8 @@ import { ProductCard } from "@/components/dental/catalogue/ProductCard";
 import { Newsletter } from "@/components/dental/newsletter/Newsletter";
 import { useTranslation, type TKey } from "@/lib/i18n";
 import { useData } from "@/lib/data-service";
+import { useSettings } from "@/lib/settings-service";
 import { navigate } from "@/lib/router";
-import { STATS, COMPANY } from "@/lib/types";
 import { getBlogImageUrl } from "@/lib/supabase";
 
 // Map icon string names from categories to lucide components
@@ -43,6 +43,12 @@ const fadeUp = {
 export function HomePage() {
   const { t, lang } = useTranslation();
   const { categories, products, blogPosts, loading } = useData();
+  const { settings } = useSettings();
+  const heroTitle = lang === "ar" ? settings.home.heroTitle_ar : settings.home.heroTitle_fr;
+  const heroSubtitle = lang === "ar" ? settings.home.heroSubtitle_ar : settings.home.heroSubtitle_fr;
+  const ctaTitle = lang === "ar" ? settings.home.ctaTitle_ar : settings.home.ctaTitle_fr;
+  const ctaSubtitle = lang === "ar" ? settings.home.ctaSubtitle_ar : settings.home.ctaSubtitle_fr;
+  const stats = settings.stats;
 
   const featured = useMemo(
     () => products.filter((p) => p.featured).slice(0, 8),
@@ -87,13 +93,13 @@ export function HomePage() {
               variant="default"
               className="mb-4 border-0 bg-white/15 text-white backdrop-blur-sm"
             >
-              {COMPANY.city}, {COMPANY.country}
+              {settings.company.city}, {settings.company.country}
             </Badge>
             <h1 className="text-balance text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
-              {t("heroTitle")}
+              {heroTitle || t("heroTitle")}
             </h1>
             <p className="mt-4 max-w-xl text-lg text-brand-100">
-              {t("heroSubtitle")}
+              {heroSubtitle || t("heroSubtitle")}
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -144,9 +150,9 @@ export function HomePage() {
             {t("statsTitle")}
           </motion.h2>
           <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-            {STATS.map((s, i) => (
+            {stats.map((s, i) => (
               <motion.div
-                key={s.value}
+                key={`${s.value}-${i}`}
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true, amount: 0.3 }}
@@ -159,7 +165,7 @@ export function HomePage() {
                       {s.value}
                     </div>
                     <div className="mt-1 text-sm text-slate-600">
-                      {s[lang]}
+                      {lang === "ar" ? s.ar : s.fr}
                     </div>
                   </CardContent>
                 </Card>
@@ -302,10 +308,10 @@ export function HomePage() {
             <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(circle_at_80%_20%,white_0,transparent_40%)]" />
             <div className="relative">
               <h2 className="text-2xl font-bold text-white sm:text-3xl">
-                {t("ctaTitle")}
+                {ctaTitle || t("ctaTitle")}
               </h2>
               <p className="mx-auto mt-2 max-w-xl text-brand-100">
-                {t("ctaSubtitle")}
+                {ctaSubtitle || t("ctaSubtitle")}
               </p>
               <Button
                 size="lg"

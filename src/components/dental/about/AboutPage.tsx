@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/lib/i18n";
-import { COMPANY, STATS } from "@/lib/types";
+import { useSettings, useCompanyInfo } from "@/lib/settings-service";
 import { navigate } from "@/lib/router";
 
 const WHY_ICONS = [ShieldCheck, Wrench, GraduationCap, Award];
@@ -19,16 +19,16 @@ const BRANDS = [
 
 export function AboutPage() {
   const { lang, t } = useTranslation();
-
-  const story = lang === "ar" ? [
-    "تأسست مجموعة وادح لطب الأسنان (ODG) في وهران، الجزائر، بهدف توفير معدات طب الأسنان عالية الجودة للممارسين في جميع أنحاء البلاد. منذ بدايتنا، التزمنا بمعايير الجودة الدولية وخدمة ما بعد البيع الموثوقة.",
-    "نحن المستورد الحصري في الجزائر للعلامات الرائدة: Silver Fox للكراسي، ICANCLAVE لأجهزة التعقيم، وOWANDY لحلول الأشعة الرقمية. توفر هذه الشراكات لعملائنا منتجات معتمدة وموثوقة.",
-    "يضم فريقنا فنيين مختصين يضمنون التركيب والتكوين والصيانة. هدفنا أن نكون شريككم الموثوق لكل احتياجاتكم في مجال طب الأسنان.",
-  ] : [
-    "OUADAH DENTAL GROUPE (ODG) a été fondée à Oran, en Algérie, avec pour mission de fournir aux professionnels du secteur dentaire un matériel de qualité internationale. Depuis nos débuts, nous nous engageons à offrir des produits certifiés et un service après-vente fiable.",
-    "Nous sommes l'importateur exclusif en Algérie des marques leaders : Silver Fox pour les fauteuils dentaires, ICANCLAVE pour la stérilisation, et OWANDY pour la radiologie numérique. Ces partenariats garantissent à nos clients des équipements certifiés et durablement soutenus.",
-    "Notre équipe de techniciens spécialisés assure l'installation, la formation et la maintenance sur tout le territoire national. Notre objectif : être votre partenaire de confiance pour équiper et faire vivre votre cabinet.",
-  ];
+  const { settings } = useSettings();
+  const company = useCompanyInfo();
+  const stats = settings.stats;
+  const companyName = lang === "ar" ? company.nameAr : company.name;
+  const storyText = lang === "ar" ? settings.about.story_ar : settings.about.story_fr;
+  // Split the story into paragraphs for nicer formatting (handles \n\n and single \n)
+  const storyParagraphs = storyText
+    .split(/\n{1,2}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
   return (
     <div>
@@ -40,9 +40,9 @@ export function AboutPage() {
             <Badge variant="secondary" className="mb-4 bg-white/20 text-white">
               {t("aboutTitle")}
             </Badge>
-            <h1 className="text-4xl font-bold sm:text-5xl">{lang === "ar" ? COMPANY.nameAr : COMPANY.name}</h1>
+            <h1 className="text-4xl font-bold sm:text-5xl">{companyName}</h1>
             <p className="mx-auto mt-4 max-w-3xl text-lg text-brand-100">{t("aboutHero")}</p>
-            <p className="mx-auto mt-2 max-w-2xl text-sm text-brand-200">{COMPANY.tagline[lang]}</p>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-brand-200">{company.tagline[lang]}</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button variant="secondary" onClick={() => navigate("contact")}>
                 {t("contactUs")}
@@ -60,9 +60,13 @@ export function AboutPage() {
         <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }}>
           <h2 className="text-3xl font-bold text-slate-900">{t("storyTitle")}</h2>
           <div className="mt-6 space-y-4 text-slate-700">
-            {story.map((p, i) => (
-              <p key={i} className="leading-relaxed">{p}</p>
-            ))}
+            {storyParagraphs.length > 0 ? (
+              storyParagraphs.map((p, i) => (
+                <p key={i} className="leading-relaxed">{p}</p>
+              ))
+            ) : (
+              <p className="leading-relaxed text-slate-400">{t("loading")}</p>
+            )}
           </div>
         </motion.div>
       </section>
@@ -72,7 +76,7 @@ export function AboutPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <h2 className="mb-8 text-center text-2xl font-bold text-slate-900">{t("statsTitle")}</h2>
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-            {STATS.map((s, i) => (
+            {stats.map((s, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, scale: 0.95 }}

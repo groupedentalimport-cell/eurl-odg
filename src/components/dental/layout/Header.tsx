@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Menu, X, ShoppingCart, GitCompare, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { COMPANY } from "@/lib/types";
+import { useCompanyInfo } from "@/lib/settings-service";
 import { useTranslation } from "@/lib/i18n";
 import { useQuoteCart } from "@/hooks/useQuoteCart";
 import { useCompare } from "@/hooks/useCompare";
@@ -11,6 +11,7 @@ import { LanguageSwitch } from "@/components/dental/lang/LanguageSwitch";
 
 export function Header() {
   const { t, lang } = useTranslation();
+  const COMPANY = useCompanyInfo();
   const route = useHashRoute();
   const [open, setOpen] = useState(false);
   const quoteCount = useQuoteCart((s) => s.totalItems);

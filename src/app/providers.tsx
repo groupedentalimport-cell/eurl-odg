@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { DataProvider } from "@/lib/data-service";
+import { SettingsProvider } from "@/lib/settings-service";
 import { Toaster } from "@/components/ui/sonner";
 import { useLanguageStore } from "@/lib/i18n";
 
@@ -16,8 +17,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <DataProvider>
-      {children}
-      <Toaster />
+      <SettingsProvider>
+        {children}
+        <Toaster />
+      </SettingsProvider>
     </DataProvider>
   );
 }

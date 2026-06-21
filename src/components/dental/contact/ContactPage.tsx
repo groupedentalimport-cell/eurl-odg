@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n";
-import { COMPANY } from "@/lib/types";
+import { useCompanyInfo } from "@/lib/settings-service";
 import { toast } from "@/components/ui/sonner";
 
 export function ContactPage() {
   const { lang, t } = useTranslation();
+  const COMPANY = useCompanyInfo();
   const [form, setForm] = useState({ name: "", email: "", phone: "", subject: "", message: "" });
   const [sending, setSending] = useState(false);
 
