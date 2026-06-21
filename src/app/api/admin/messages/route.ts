@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase";
+import { verifyAdmin } from "@/lib/admin-auth";
 
 function isMissingTableError(err: any): boolean {
   const msg = (err?.message || err?.toString() || "").toLowerCase();
@@ -20,8 +21,11 @@ function getClient() {
   }
 }
 
-// GET: list messages ordered by created_at desc, limit 100
-export async function GET() {
+// GET: list messages ordered by created_at desc, limit 100 (admin only)
+export async function GET(request: NextRequest) {
+  if (!verifyAdmin(request)) {
+    return NextResponse.json({ error: "Non autorisé. Session admin requise." }, { status: 401 });
+  }
   const client = getClient();
   if (!client) {
     return NextResponse.json(
@@ -69,8 +73,11 @@ export async function GET() {
   }
 }
 
-// PATCH: mark a message as read. Expects ?id=...
+// PATCH: mark a message as read. Expects ?id=... (admin only)
 export async function PATCH(req: NextRequest) {
+  if (!verifyAdmin(req)) {
+    return NextResponse.json({ error: "Non autorisé. Session admin requise." }, { status: 401 });
+  }
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   if (!id) {
@@ -125,8 +132,11 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE: remove a message. Expects ?id=...
+// DELETE: remove a message. Expects ?id=... (admin only)
 export async function DELETE(req: NextRequest) {
+  if (!verifyAdmin(req)) {
+    return NextResponse.json({ error: "Non autorisé. Session admin requise." }, { status: 401 });
+  }
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   if (!id) {

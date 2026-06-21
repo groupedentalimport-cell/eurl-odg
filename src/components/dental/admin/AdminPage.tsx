@@ -12,9 +12,6 @@ import { useData } from "@/lib/data-service";
 import { useTranslation } from "@/lib/i18n";
 import { toast } from "@/components/ui/sonner";
 
-const ADMIN_PASSWORD = "odg-admin-2026";
-const SESSION_KEY = "odg-admin-session";
-
 interface AdminMessage {
   id: string;
   name: string;
@@ -29,33 +26,60 @@ interface AdminMessage {
 export function AdminPage() {
   const { lang, t } = useTranslation();
   const { products, blogPosts } = useData();
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState<boolean | null>(null); // null = checking
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
 
-  // Restore session
+  // Check existing server session (cookie) on mount — survives refresh.
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem(SESSION_KEY) === "1") setAuthed(true);
-    } catch {}
+    let cancelled = false;
+    fetch("/api/admin/session", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setAuthed(Boolean(d?.authed)); })
+      .catch(() => { if (!cancelled) setAuthed(false); });
+    return () => { cancelled = true; };
   }, []);
 
-  const login = (e: React.FormEvent) => {
+  const login = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      setAuthed(true);
-      try { sessionStorage.setItem(SESSION_KEY, "1"); } catch {}
-      setLoginError("");
-    } else {
-      setLoginError(lang === "ar" ? "كلمة مرور خاطئة" : "Mot de passe incorrect");
+    if (!password || loginLoading) return;
+    setLoginLoading(true);
+    setLoginError("");
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (res.ok && data?.ok) {
+        setAuthed(true);
+        setPassword("");
+      } else {
+        setLoginError(data?.error || (lang === "ar" ? "كلمة مرور خاطئة" : "Mot de passe incorrect"));
+      }
+    } catch (err: any) {
+      setLoginError(err?.message || "Erreur réseau");
+    } finally {
+      setLoginLoading(false);
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try { await fetch("/api/admin/logout", { method: "POST" }); } catch {}
     setAuthed(false);
     setPassword("");
-    try { sessionStorage.removeItem(SESSION_KEY); } catch {}
   };
+
+  if (authed === null) {
+    // Checking server session
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-brand-700" />
+      </div>
+    );
+  }
 
   if (!authed) {
     return (
@@ -79,17 +103,15 @@ export function AdminPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     autoFocus
+                    disabled={loginLoading}
                   />
                 </div>
                 {loginError && (
                   <p className="text-sm text-red-600">{loginError}</p>
                 )}
-                <Button type="submit" className="w-full bg-brand-700 hover:bg-brand-800">
-                  {t("login")}
+                <Button type="submit" className="w-full bg-brand-700 hover:bg-brand-800" disabled={loginLoading || !password}>
+                  {loginLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("sending")}</> : t("login")}
                 </Button>
-                <p className="text-center text-xs text-slate-400">
-                  {lang === "ar" ? "عرض تجريبي — كلمة المرور: odg-admin-2026" : "Démo — mot de passe : odg-admin-2026"}
-                </p>
               </form>
             </CardContent>
           </Card>
