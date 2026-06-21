@@ -81,7 +81,17 @@ export function verifyAdmin(request: Request): boolean {
       return [k, v.join("=")];
     })
   );
-  return verify(cookies[COOKIE_NAME]);
+  let raw = cookies[COOKIE_NAME];
+  if (!raw) return false;
+  // Browsers URL-encode cookie values (`:` → `%3A`). Decode before verifying
+  // so the payload regex `^admin:(\d+)$` matches.
+  try {
+    raw = decodeURIComponent(raw);
+  } catch {
+    // malformed encoding — treat as invalid
+    return false;
+  }
+  return verify(raw);
 }
 
 export const ADMIN_COOKIE_NAME = COOKIE_NAME;
