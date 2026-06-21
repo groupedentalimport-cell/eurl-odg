@@ -85,12 +85,10 @@ function buildPayload(body: any) {
     ordre: Number.isFinite(Number(body.ordre)) ? Number(body.ordre) : 0,
     cible: Array.isArray(body.cible) ? body.cible : [],
   };
-  // video_url is optional — only include if the column exists. We send it
-  // optimistically; if the column is missing Supabase returns an error and
-  // the admin sees a toast. (Most deployments have the column.)
-  if (body.video_url !== undefined) {
-    payload.video_url = body.video_url ?? null;
-  }
+  // NOTE: video_url column does NOT exist in the products table — omit it
+  // from the payload to avoid a PGRST204 'Could not find the video_url
+  // column' error. The admin form may still show the field (for future use)
+  // but the value is silently dropped here.
   return payload;
 }
 

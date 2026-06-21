@@ -932,15 +932,6 @@ export function ProductsPanel() {
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="p_video">{t("videoUrl")}</Label>
-              <Input
-                id="p_video"
-                value={form.video_url}
-                onChange={(e) => update("video_url", e.target.value)}
-              />
-            </div>
-
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor="p_ordre">{t("order")}</Label>
