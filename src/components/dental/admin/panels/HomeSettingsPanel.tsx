@@ -17,17 +17,6 @@ import { useSettings } from "@/lib/settings-service";
 import type { HomeSettings, StatItem } from "@/lib/settings-service";
 import { toast } from "@/components/ui/sonner";
 
-interface HomeShape {
-  heroTitle_fr?: string;
-  heroTitle_ar?: string;
-  heroSubtitle_fr?: string;
-  heroSubtitle_ar?: string;
-  ctaTitle_fr?: string;
-  ctaTitle_ar?: string;
-  ctaSubtitle_fr?: string;
-  ctaSubtitle_ar?: string;
-}
-
 const EMPTY_HOME: HomeSettings = {
   heroTitle_fr: "",
   heroTitle_ar: "",
@@ -72,60 +61,35 @@ function HomeField({
 
 export function HomeSettingsPanel() {
   const { t } = useTranslation();
-  const { refresh } = useSettings();
+  const { settings, loading, tableMissing, refresh } = useSettings();
 
-  const [loading, setLoading] = useState(true);
-  const [tableMissing, setTableMissing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [home, setHome] = useState<HomeSettings>(EMPTY_HOME);
   const [stats, setStats] = useState<StatItem[]>([]);
 
-  const load = async () => {
-    setLoading(true);
-    setTableMissing(false);
-    try {
-      const res = await fetch("/api/admin/settings", { cache: "no-store" });
-      if (res.status === 501) {
-        const data = await res.json().catch(() => ({}));
-        if (data?.tableMissing) setTableMissing(true);
-        else toast.error(t("saveFailed"));
-      } else if (!res.ok) {
-        toast.error(t("saveFailed"));
-      } else {
-        const data = await res.json();
-        const s = data?.settings || {};
-        const h: HomeShape = (s.home as HomeShape) || {};
-        setHome({
-          heroTitle_fr: h.heroTitle_fr ?? "",
-          heroTitle_ar: h.heroTitle_ar ?? "",
-          heroSubtitle_fr: h.heroSubtitle_fr ?? "",
-          heroSubtitle_ar: h.heroSubtitle_ar ?? "",
-          ctaTitle_fr: h.ctaTitle_fr ?? "",
-          ctaTitle_ar: h.ctaTitle_ar ?? "",
-          ctaSubtitle_fr: h.ctaSubtitle_fr ?? "",
-          ctaSubtitle_ar: h.ctaSubtitle_ar ?? "",
-        });
-        if (Array.isArray(s.stats)) {
-          setStats(
-            s.stats.map((x: Partial<StatItem>) => ({
-              value: x.value ?? "",
-              fr: x.fr ?? "",
-              ar: x.ar ?? "",
-            }))
-          );
-        }
-      }
-    } catch {
-      toast.error(t("saveFailed"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Sync from context whenever settings load/change
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const h = settings.home;
+    setHome({
+      heroTitle_fr: h.heroTitle_fr ?? "",
+      heroTitle_ar: h.heroTitle_ar ?? "",
+      heroSubtitle_fr: h.heroSubtitle_fr ?? "",
+      heroSubtitle_ar: h.heroSubtitle_ar ?? "",
+      ctaTitle_fr: h.ctaTitle_fr ?? "",
+      ctaTitle_ar: h.ctaTitle_ar ?? "",
+      ctaSubtitle_fr: h.ctaSubtitle_fr ?? "",
+      ctaSubtitle_ar: h.ctaSubtitle_ar ?? "",
+    });
+    if (Array.isArray(settings.stats)) {
+      setStats(
+        settings.stats.map((x) => ({
+          value: x.value ?? "",
+          fr: x.fr ?? "",
+          ar: x.ar ?? "",
+        }))
+      );
+    }
+  }, [settings]);
 
   const setHomeField = (k: keyof HomeSettings) => (v: string) =>
     setHome((h) => ({ ...h, [k]: v }));
@@ -148,14 +112,9 @@ export function HomeSettingsPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "home", value: home }),
       });
-      if (!homeRes.ok) {
-        const d = await homeRes.json().catch(() => ({}));
-        if (d?.tableMissing) {
-          setTableMissing(true);
-          toast.error(t("tableMissingNotice"));
-          return;
-        }
-        throw new Error(d?.error || "save failed");
+      const homeData = await homeRes.json().catch(() => ({}));
+      if (!homeRes.ok || !homeData?.ok) {
+        throw new Error(homeData?.error || "save failed");
       }
       // Save stats
       const statsRes = await fetch("/api/admin/settings", {
@@ -163,17 +122,12 @@ export function HomeSettingsPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "stats", value: stats }),
       });
-      if (!statsRes.ok) {
-        const d = await statsRes.json().catch(() => ({}));
-        if (d?.tableMissing) {
-          setTableMissing(true);
-          toast.error(t("tableMissingNotice"));
-          return;
-        }
-        throw new Error(d?.error || "save failed");
+      const statsData = await statsRes.json().catch(() => ({}));
+      if (!statsRes.ok || !statsData?.ok) {
+        throw new Error(statsData?.error || "save failed");
       }
       toast.success(t("saved"));
-      refresh();
+      refresh(); // reload context so public pages update
     } catch (err: any) {
       toast.error(t("saveFailed"), { description: err?.message || "" });
     } finally {
@@ -207,7 +161,7 @@ export function HomeSettingsPanel() {
           </div>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" onClick={load}>
+          <Button variant="outline" onClick={refresh}>
             {t("retry")}
           </Button>
         </CardContent>

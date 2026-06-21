@@ -16,11 +16,6 @@ import { useSettings } from "@/lib/settings-service";
 import type { AboutSettings } from "@/lib/settings-service";
 import { toast } from "@/components/ui/sonner";
 
-interface AboutShape {
-  story_fr?: string;
-  story_ar?: string;
-}
-
 const EMPTY_ABOUT: AboutSettings = {
   story_fr: "",
   story_ar: "",
@@ -28,44 +23,19 @@ const EMPTY_ABOUT: AboutSettings = {
 
 export function AboutSettingsPanel() {
   const { t } = useTranslation();
-  const { refresh } = useSettings();
+  const { settings, loading, tableMissing, refresh } = useSettings();
 
-  const [loading, setLoading] = useState(true);
-  const [tableMissing, setTableMissing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [about, setAbout] = useState<AboutSettings>(EMPTY_ABOUT);
 
-  const load = async () => {
-    setLoading(true);
-    setTableMissing(false);
-    try {
-      const res = await fetch("/api/admin/settings", { cache: "no-store" });
-      if (res.status === 501) {
-        const data = await res.json().catch(() => ({}));
-        if (data?.tableMissing) setTableMissing(true);
-        else toast.error(t("saveFailed"));
-      } else if (!res.ok) {
-        toast.error(t("saveFailed"));
-      } else {
-        const data = await res.json();
-        const s = data?.settings || {};
-        const a: AboutShape = (s.about as AboutShape) || {};
-        setAbout({
-          story_fr: a.story_fr ?? "",
-          story_ar: a.story_ar ?? "",
-        });
-      }
-    } catch {
-      toast.error(t("saveFailed"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Sync from context whenever settings load/change
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const a = settings.about;
+    setAbout({
+      story_fr: a.story_fr ?? "",
+      story_ar: a.story_ar ?? "",
+    });
+  }, [settings]);
 
   const save = async () => {
     setSaving(true);
@@ -75,17 +45,12 @@ export function AboutSettingsPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "about", value: about }),
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        if (d?.tableMissing) {
-          setTableMissing(true);
-          toast.error(t("tableMissingNotice"));
-          return;
-        }
-        throw new Error(d?.error || "save failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "save failed");
       }
       toast.success(t("saved"));
-      refresh();
+      refresh(); // reload context so public pages update
     } catch (err: any) {
       toast.error(t("saveFailed"), { description: err?.message || "" });
     } finally {
@@ -119,7 +84,7 @@ export function AboutSettingsPanel() {
           </div>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" onClick={load}>
+          <Button variant="outline" onClick={refresh}>
             {t("retry")}
           </Button>
         </CardContent>

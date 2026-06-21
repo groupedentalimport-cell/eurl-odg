@@ -17,23 +17,6 @@ import { useSettings } from "@/lib/settings-service";
 import type { CompanySettings } from "@/lib/settings-service";
 import { toast } from "@/components/ui/sonner";
 
-interface CompanyShape {
-  name?: string;
-  nameAr?: string;
-  phone?: string;
-  phone2?: string;
-  email?: string;
-  address_fr?: string;
-  address_ar?: string;
-  city?: string;
-  country?: string;
-  hours_fr?: string;
-  hours_ar?: string;
-  facebook?: string;
-  instagram?: string;
-  linkedin?: string;
-}
-
 const EMPTY_COMPANY: CompanySettings = {
   name: "",
   nameAr: "",
@@ -95,56 +78,31 @@ function Field({
 
 export function ContactSettingsPanel() {
   const { t } = useTranslation();
-  const { refresh } = useSettings();
+  const { settings, loading, tableMissing, refresh } = useSettings();
 
-  const [loading, setLoading] = useState(true);
-  const [tableMissing, setTableMissing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [company, setCompany] = useState<CompanySettings>(EMPTY_COMPANY);
 
-  const load = async () => {
-    setLoading(true);
-    setTableMissing(false);
-    try {
-      const res = await fetch("/api/admin/settings", { cache: "no-store" });
-      if (res.status === 501) {
-        const data = await res.json().catch(() => ({}));
-        if (data?.tableMissing) setTableMissing(true);
-        else toast.error(t("saveFailed"));
-      } else if (!res.ok) {
-        toast.error(t("saveFailed"));
-      } else {
-        const data = await res.json();
-        const s = data?.settings || {};
-        const c: CompanyShape = (s.company as CompanyShape) || {};
-        setCompany({
-          name: c.name ?? "",
-          nameAr: c.nameAr ?? "",
-          phone: c.phone ?? "",
-          phone2: c.phone2 ?? "",
-          email: c.email ?? "",
-          address_fr: c.address_fr ?? "",
-          address_ar: c.address_ar ?? "",
-          city: c.city ?? "",
-          country: c.country ?? "",
-          hours_fr: c.hours_fr ?? "",
-          hours_ar: c.hours_ar ?? "",
-          facebook: c.facebook ?? "",
-          instagram: c.instagram ?? "",
-          linkedin: c.linkedin ?? "",
-        });
-      }
-    } catch {
-      toast.error(t("saveFailed"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Sync from context whenever settings load/change
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const c = settings.company;
+    setCompany({
+      name: c.name ?? "",
+      nameAr: c.nameAr ?? "",
+      phone: c.phone ?? "",
+      phone2: c.phone2 ?? "",
+      email: c.email ?? "",
+      address_fr: c.address_fr ?? "",
+      address_ar: c.address_ar ?? "",
+      city: c.city ?? "",
+      country: c.country ?? "",
+      hours_fr: c.hours_fr ?? "",
+      hours_ar: c.hours_ar ?? "",
+      facebook: c.facebook ?? "",
+      instagram: c.instagram ?? "",
+      linkedin: c.linkedin ?? "",
+    });
+  }, [settings]);
 
   const set = (k: keyof CompanySettings) => (v: string) =>
     setCompany((c) => ({ ...c, [k]: v }));
@@ -157,17 +115,12 @@ export function ContactSettingsPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "company", value: company }),
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        if (d?.tableMissing) {
-          setTableMissing(true);
-          toast.error(t("tableMissingNotice"));
-          return;
-        }
-        throw new Error(d?.error || "save failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "save failed");
       }
       toast.success(t("saved"));
-      refresh();
+      refresh(); // reload context so public pages update
     } catch (err: any) {
       toast.error(t("saveFailed"), { description: err?.message || "" });
     } finally {
@@ -201,7 +154,7 @@ export function ContactSettingsPanel() {
           </div>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" onClick={load}>
+          <Button variant="outline" onClick={refresh}>
             {t("retry")}
           </Button>
         </CardContent>
