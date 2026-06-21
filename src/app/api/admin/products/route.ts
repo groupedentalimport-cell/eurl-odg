@@ -6,13 +6,20 @@ import { verifyAdmin } from "@/lib/admin-auth";
 // Uses the service role client (bypasses RLS). All routes gated behind verifyAdmin.
 
 function isMissingTableError(err: any): boolean {
+  // Detect ONLY genuine "table/relation does not exist" errors.
+  // Be careful NOT to match constraint-violation messages (which also contain
+  // the word "relation") — those are NOT missing-table errors.
   const msg = (err?.message || err?.toString() || "").toLowerCase();
+  const code = String(err?.code || "");
+  // Postgres code 42P01 = undefined_table
+  if (code === "42p01") return true;
+  // PGRST205 = schema cache miss (table doesn't exist in PostgREST view)
+  if (code === "pgrst205") return true;
   return (
     msg.includes("could not find the table") ||
-    (msg.includes("relation") && msg.includes("does not exist")) ||
-    (msg.includes("table") && msg.includes("does not exist")) ||
-    msg.includes("schema cache") ||
-    msg.includes("404")
+    msg.includes("relation") && msg.includes("does not exist") ||
+    msg.includes("table") && msg.includes("does not exist") ||
+    msg.includes("schema cache") && msg.includes("does not exist")
   );
 }
 
@@ -55,10 +62,15 @@ function normalizeSpecs(specs: any): Record<string, string> {
 }
 
 function buildPayload(body: any) {
+  // Several columns in the products table are NOT NULL without defaults
+  // (nom_fr, nom_ar). Fill empty strings with a fallback so INSERT/UPDATE
+  // never fails with a 23502 not-null violation.
+  const nom_fr = body.nom_fr?.trim() || body.nom_ar?.trim() || body.slug || "Produit";
+  const nom_ar = body.nom_ar?.trim() || body.nom_fr?.trim() || body.slug || "منتج";
   const payload: Record<string, unknown> = {
     slug: body.slug ?? "",
-    nom_fr: body.nom_fr ?? "",
-    nom_ar: body.nom_ar ?? "",
+    nom_fr,
+    nom_ar,
     description_fr: body.description_fr ?? "",
     description_ar: body.description_ar ?? "",
     specs: normalizeSpecs(body.specs),

@@ -18,12 +18,13 @@ import { verifyAdmin } from "@/lib/admin-auth";
 
 function isMissingTableError(err: any): boolean {
   const msg = (err?.message || err?.toString() || "").toLowerCase();
+  const code = String(err?.code || "");
+  if (code === "42p01" || code === "pgrst205") return true;
   return (
     msg.includes("could not find the table") ||
-    (msg.includes("relation") && msg.includes("does not exist")) ||
-    (msg.includes("table") && msg.includes("does not exist")) ||
-    msg.includes("schema cache") ||
-    msg.includes("404")
+    msg.includes("relation") && msg.includes("does not exist") ||
+    msg.includes("table") && msg.includes("does not exist") ||
+    msg.includes("schema cache") && msg.includes("does not exist")
   );
 }
 
@@ -40,10 +41,13 @@ function getClient() {
 // We never write to fts_fr / fts_ar — they are tsvector columns populated by
 // a Supabase trigger (or simply NULL if no trigger exists; both are fine).
 function buildPayload(body: any) {
+  // nom_fr and nom_ar are NOT NULL without defaults — fill with fallback.
+  const nom_fr = body.nom_fr?.trim() || body.nom_ar?.trim() || body.slug || "Catégorie";
+  const nom_ar = body.nom_ar?.trim() || body.nom_fr?.trim() || body.slug || "فئة";
   const payload: Record<string, unknown> = {
     slug: body.slug ?? "",
-    nom_fr: body.nom_fr ?? "",
-    nom_ar: body.nom_ar ?? "",
+    nom_fr,
+    nom_ar,
     icone: body.icone ?? "",
     ordre: Number.isFinite(Number(body.ordre)) ? Number(body.ordre) : 0,
   };

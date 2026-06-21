@@ -7,12 +7,13 @@ import { verifyAdmin } from "@/lib/admin-auth";
 
 function isMissingTableError(err: any): boolean {
   const msg = (err?.message || err?.toString() || "").toLowerCase();
+  const code = String(err?.code || "");
+  if (code === "42p01" || code === "pgrst205") return true;
   return (
     msg.includes("could not find the table") ||
-    (msg.includes("relation") && msg.includes("does not exist")) ||
-    (msg.includes("table") && msg.includes("does not exist")) ||
-    msg.includes("schema cache") ||
-    msg.includes("404")
+    msg.includes("relation") && msg.includes("does not exist") ||
+    msg.includes("table") && msg.includes("does not exist") ||
+    msg.includes("schema cache") && msg.includes("does not exist")
   );
 }
 
@@ -26,10 +27,13 @@ function getClient() {
 
 // Convert form payload to Supabase column names (snake_case).
 function buildPayload(body: any) {
+  // Fallback for titre fields in case they're NOT NULL.
+  const titre_fr = body.titre_fr?.trim() || body.titre_ar?.trim() || body.slug || "Article";
+  const titre_ar = body.titre_ar?.trim() || body.titre_fr?.trim() || body.slug || "مقال";
   return {
     slug: body.slug ?? "",
-    titre_fr: body.titre_fr ?? "",
-    titre_ar: body.titre_ar ?? "",
+    titre_fr,
+    titre_ar,
     contenu_fr: body.contenu_fr ?? "",
     contenu_ar: body.contenu_ar ?? "",
     image_url: body.image_url ?? null,
