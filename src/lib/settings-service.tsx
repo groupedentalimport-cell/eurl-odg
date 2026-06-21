@@ -62,11 +62,25 @@ export interface CompanySettings {
   linkedin: string;
 }
 
+// GPS coordinates + label for the OpenStreetMap iframe on the public
+// Contact page. `lat`/`lng` are stored as strings (decimal degrees, e.g.
+// "35.6551" / "-0.6417") so the admin can paste DMS or decimal values;
+// the public ContactPage parses them with parseFloat and falls back to
+// the Oran defaults when NaN/empty.
+export interface MapSettings {
+  lat: string;
+  lng: string;
+  zoom: string;
+  label_fr: string;
+  label_ar: string;
+}
+
 interface AllSettings {
   company: CompanySettings;
   home: HomeSettings;
   about: AboutSettings;
   stats: StatItem[];
+  map: MapSettings;
 }
 
 const DEFAULT_SETTINGS: AllSettings = {
@@ -101,6 +115,13 @@ const DEFAULT_SETTINGS: AllSettings = {
     story_ar: "مجموعة وادح لطب الأسنان هي شركة متخصصة في استيراد معدات طب الأسنان، مقرها وهران.",
   },
   stats: STATS,
+  map: {
+    lat: "35.6551",
+    lng: "-0.6417",
+    zoom: "13",
+    label_fr: "",
+    label_ar: "",
+  },
 };
 
 interface SettingsContextValue {
@@ -195,7 +216,18 @@ function assemble(flat: Record<string, SettingRow>): AllSettings {
     .filter((x): x is StatItem => x !== null);
   if (stats.length === 0) stats.push(...DEFAULT_SETTINGS.stats);
 
-  return { company, home, about, stats };
+  // GPS map fields from contact.map.* flat keys.
+  // We read `value_fr` for lat/lng/zoom/address_fr (numbers/FR text), and
+  // `value_ar` for address_ar. Sensible Oran defaults are used when empty.
+  const map: MapSettings = {
+    lat: txt("contact.map.lat", "fr", DEFAULT_SETTINGS.map.lat),
+    lng: txt("contact.map.lng", "fr", DEFAULT_SETTINGS.map.lng),
+    zoom: txt("contact.map.zoom", "fr", DEFAULT_SETTINGS.map.zoom),
+    label_fr: txt("contact.map.address_fr", "fr", DEFAULT_SETTINGS.map.label_fr),
+    label_ar: txt("contact.map.address_ar", "ar", DEFAULT_SETTINGS.map.label_ar),
+  };
+
+  return { company, home, about, stats, map };
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {

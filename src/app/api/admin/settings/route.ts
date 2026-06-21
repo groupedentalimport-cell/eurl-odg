@@ -172,6 +172,43 @@ function translateToFlat(key: string, value: Record<string, unknown>): FlatUpser
         });
       }
     }
+  } else if (key === "map") {
+    // GPS position for the contact page map. value = {lat, lng, zoom, label_fr, label_ar}
+    const v = value as { lat?: string; lng?: string; zoom?: string; label_fr?: string; label_ar?: string };
+    const fields: Array<{ k: string; val: string | null; lang: "fr" | "ar"; label: string }> = [
+      { k: "contact.map.lat", val: v.lat ?? null, lang: "fr", label: "Latitude" },
+      { k: "contact.map.lng", val: v.lng ?? null, lang: "fr", label: "Longitude" },
+      { k: "contact.map.zoom", val: v.zoom ?? null, lang: "fr", label: "Zoom" },
+      { k: "contact.map.address_fr", val: v.label_fr ?? null, lang: "fr", label: "Label carte (FR)" },
+      { k: "contact.map.address_ar", val: v.label_ar ?? null, lang: "ar", label: "Label carte (AR)" },
+    ];
+    for (const f of fields) {
+      upserts.push({
+        key: f.k,
+        value_fr: f.lang === "fr" ? f.val : null,
+        value_ar: f.lang === "ar" ? f.val : null,
+        category: "contact",
+        label: f.label,
+        type: "text",
+      });
+    }
+  } else if (key === "brands") {
+    // Exclusive brands array — stored as value_json in the about.brands row.
+    // value is an array of {name, bg, text}.
+    const arr = Array.isArray(value) ? value : [];
+    // Upsert the single about.brands row with value_json = arr.
+    // We handle this as a special case in the PUT below (value_json upsert).
+    // For now, push a sentinel so we know to use value_json.
+    upserts.push({
+      key: "about.brands",
+      value_fr: null,
+      value_ar: null,
+      category: "about",
+      label: "Marques partenaires",
+      type: "json",
+    });
+    // Stash the brands array on a side-channel property so the PUT handler can use it
+    (upserts as any).__brandsArray = arr;
   }
   return upserts;
 }
@@ -208,12 +245,16 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Clé inconnue ou valeur vide" }, { status: 400 });
   }
 
+  // Side-channel: for the "brands" key, the brands array is stashed on the upserts object.
+  const brandsArray = (upserts as any).__brandsArray as unknown[] | undefined;
+
   try {
-    // Upsert each flat row
+    // Build the upsert rows. For json-type rows, populate value_json with the brands array.
     const rows = upserts.map((u) => ({
       key: u.key,
       value_fr: u.value_fr,
       value_ar: u.value_ar,
+      value_json: u.type === "json" && brandsArray ? brandsArray : null,
       category: u.category,
       label: u.label,
       type: u.type,

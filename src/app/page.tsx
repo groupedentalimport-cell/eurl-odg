@@ -17,6 +17,7 @@ const ComparePage = dynamic(() => import("@/components/dental/compare/ComparePag
 const QuotePage = dynamic(() => import("@/components/dental/quote/QuotePage").then(m => m.QuotePage), { ssr: false, loading: () => <PageLoader /> });
 const AdminPage = dynamic(() => import("@/components/dental/admin/AdminPage").then(m => m.AdminPage), { ssr: false, loading: () => <PageLoader /> });
 const ChatbotWidget = dynamic(() => import("@/components/dental/chatbot/ChatbotWidget").then(m => m.ChatbotWidget), { ssr: false });
+const WhatsAppWidget = dynamic(() => import("@/components/dental/chatbot/WhatsAppWidget").then(m => m.WhatsAppWidget), { ssr: false });
 
 function PageLoader() {
   return (
@@ -53,6 +54,7 @@ export default function Home() {
       <main className="flex-1">{renderPage()}</main>
       <Footer />
       <ChatbotWidget />
+      <WhatsAppWidget />
     </div>
   );
 }

@@ -1,6 +1,19 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Loader2, Star, Check, X, Package, AlertTriangle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  Star,
+  Check,
+  X,
+  Package,
+  AlertTriangle,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +38,7 @@ import {
 import { toast } from "@/components/ui/sonner";
 import { useTranslation } from "@/lib/i18n";
 import { useData } from "@/lib/data-service";
+import { getProductImageUrl } from "@/lib/supabase";
 
 interface ProductRow {
   id: string;
@@ -57,9 +71,9 @@ interface ProductForm {
   description_fr: string;
   description_ar: string;
   specs: string; // textarea: "Label|Value" per line
-  images: string; // comma-separated
-  pdf_url: string;
-  brochure_pdf: string;
+  images: string[]; // array of storage filenames
+  pdf_url: string; // single storage filename (or "")
+  brochure_pdf: string; // single storage filename (or "")
   video_url: string;
   category_id: string;
   marque: string;
@@ -77,7 +91,7 @@ const EMPTY_FORM: ProductForm = {
   description_fr: "",
   description_ar: "",
   specs: "",
-  images: "",
+  images: [],
   pdf_url: "",
   brochure_pdf: "",
   video_url: "",
@@ -126,7 +140,7 @@ function rowToForm(row: ProductRow): ProductForm {
     description_fr: row.description_fr || "",
     description_ar: row.description_ar || "",
     specs: specsText,
-    images: Array.isArray(row.images) ? row.images.join(", ") : "",
+    images: Array.isArray(row.images) ? row.images.filter(Boolean) : [],
     pdf_url: row.pdf_url || "",
     brochure_pdf: row.brochure_pdf || "",
     video_url: row.video_url || "",
@@ -165,12 +179,9 @@ function formToPayload(form: ProductForm) {
     description_fr: form.description_fr,
     description_ar: form.description_ar,
     specs,
-    images: form.images
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
-    pdf_url: form.pdf_url,
-    brochure_pdf: form.brochure_pdf,
+    images: form.images.filter(Boolean),
+    pdf_url: form.pdf_url || null,
+    brochure_pdf: form.brochure_pdf || null,
     video_url: form.video_url,
     category_id: form.category_id,
     marque: form.marque,
@@ -183,6 +194,30 @@ function formToPayload(form: ProductForm) {
       .map((s) => s.trim())
       .filter(Boolean),
   };
+}
+
+// Upload a single file to the admin upload API. Returns the server-stored
+// filename on success (the public URL is derived via getProductImageUrl).
+// Used by both the multi-image and single-PDF upload flows.
+async function uploadFile(
+  file: File,
+  bucket: "product-images" | "blog-images"
+): Promise<
+  { ok: true; filename: string; url: string } | { ok: false; error: string }
+> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("bucket", bucket);
+  try {
+    const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      return { ok: false, error: data?.error || `HTTP ${res.status}` };
+    }
+    return { ok: true, filename: data.filename, url: data.url };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Erreur réseau" };
+  }
 }
 
 export function ProductsPanel() {
@@ -198,6 +233,19 @@ export function ProductsPanel() {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const [slugTouched, setSlugTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Upload state — one progress indicator per file input.
+  const [uploadingImages, setUploadingImages] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingBrochure, setUploadingBrochure] = useState(false);
+
+  // Hidden <input type="file"> refs — clicked via Button onClick.
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const brochureInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -257,6 +305,82 @@ export function ProductsPanel() {
     update("slug", val);
   };
 
+  // ---------- File upload handlers ----------
+
+  // Multi-image upload — accepts several files at once, uploads them
+  // sequentially, appends each returned filename to `form.images`.
+  const handleImageFiles = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    // Reset so selecting the same file again still fires onChange.
+    e.target.value = "";
+
+    setUploadingImages({ current: 0, total: files.length });
+    const added: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      setUploadingImages({ current: i, total: files.length });
+      const result = await uploadFile(files[i], "product-images");
+      if (result.ok) {
+        added.push(result.filename);
+      } else {
+        toast.error(t("uploadFailed"), {
+          description: `${files[i].name} — ${result.error}`,
+        });
+      }
+    }
+    setUploadingImages({ current: files.length, total: files.length });
+    if (added.length > 0) {
+      setForm((prev) => ({ ...prev, images: [...prev.images, ...added] }));
+      toast.success(t("uploadSuccess"), {
+        description: `${added.length} / ${files.length}`,
+      });
+    }
+    setUploadingImages(null);
+  };
+
+  const removeImage = (idx: number) => {
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== idx),
+    }));
+  };
+
+  // Single PDF upload — replaces the current pdf_url.
+  const handlePdfFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploadingPdf(true);
+    const result = await uploadFile(file, "product-images");
+    if (result.ok) {
+      setForm((prev) => ({ ...prev, pdf_url: result.filename }));
+      toast.success(t("uploadSuccess"), { description: result.filename });
+    } else {
+      toast.error(t("uploadFailed"), { description: result.error });
+    }
+    setUploadingPdf(false);
+  };
+
+  // Single PDF upload — replaces the current brochure_pdf.
+  const handleBrochureFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploadingBrochure(true);
+    const result = await uploadFile(file, "product-images");
+    if (result.ok) {
+      setForm((prev) => ({ ...prev, brochure_pdf: result.filename }));
+      toast.success(t("uploadSuccess"), { description: result.filename });
+    } else {
+      toast.error(t("uploadFailed"), { description: result.error });
+    }
+    setUploadingBrochure(false);
+  };
+
+  // ---------- CRUD handlers ----------
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
@@ -275,7 +399,9 @@ export function ProductsPanel() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(t("saveFailed"), { description: data?.error || `HTTP ${res.status}` });
+        toast.error(t("saveFailed"), {
+          description: data?.error || `HTTP ${res.status}`,
+        });
         return;
       }
       toast.success(t("saved"));
@@ -291,12 +417,15 @@ export function ProductsPanel() {
   const remove = async (row: ProductRow) => {
     if (!window.confirm(t("confirmDelete"))) return;
     try {
-      const res = await fetch(`/api/admin/products?id=${encodeURIComponent(row.id)}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/admin/products?id=${encodeURIComponent(row.id)}`,
+        { method: "DELETE" }
+      );
       const data = await res.json();
       if (!res.ok) {
-        toast.error(t("saveFailed"), { description: data?.error || `HTTP ${res.status}` });
+        toast.error(t("saveFailed"), {
+          description: data?.error || `HTTP ${res.status}`,
+        });
         return;
       }
       toast.success(t("saved"));
@@ -330,7 +459,9 @@ export function ProductsPanel() {
         <CardContent className="flex items-start gap-3 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
           <div className="space-y-1">
-            <p className="text-sm font-medium text-amber-900">{t("tableMissingNotice")}</p>
+            <p className="text-sm font-medium text-amber-900">
+              {t("tableMissingNotice")}
+            </p>
             <Button size="sm" variant="outline" onClick={refresh} className="mt-2">
               {t("retry")}
             </Button>
@@ -397,14 +528,18 @@ export function ProductsPanel() {
                 <tr key={row.id} className="hover:bg-slate-50/60">
                   <td className="px-4 py-3">
                     <div className="font-medium text-slate-900">
-                      {row.nom_fr || <span className="italic text-slate-400">—</span>}
+                      {row.nom_fr || (
+                        <span className="italic text-slate-400">—</span>
+                      )}
                     </div>
                     <div className="text-xs text-slate-500">{row.slug}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-700">{row.marque || "—"}</td>
                   <td className="px-4 py-3 text-slate-700">{row.modele || "—"}</td>
                   <td className="px-4 py-3 text-slate-700">
-                    {row.category_id ? catNameById.get(row.category_id) || "—" : "—"}
+                    {row.category_id
+                      ? catNameById.get(row.category_id) || "—"
+                      : "—"}
                   </td>
                   <td className="px-4 py-3">
                     {row.en_vedette ? (
@@ -574,14 +709,87 @@ export function ProductsPanel() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="p_images">{t("images")}</Label>
-              <Input
-                id="p_images"
-                value={form.images}
-                onChange={(e) => update("images", e.target.value)}
-                placeholder="image1.jpg, image2.jpg"
+            {/* ----- Images (multi-upload) ----- */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>{t("images")}</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={!!uploadingImages}
+                >
+                  {uploadingImages ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t("uploading")} {uploadingImages.current}/
+                      {uploadingImages.total}
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      {t("addImage")}
+                    </>
+                  )}
+                </Button>
+              </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                multiple
+                className="hidden"
+                onChange={handleImageFiles}
               />
+              {form.images.length === 0 ? (
+                <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">
+                  {t("noFile")}
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {form.images.map((fn, idx) => {
+                    const url = getProductImageUrl(fn);
+                    return (
+                      <div
+                        key={`${fn}-${idx}`}
+                        className="group relative overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+                      >
+                        <div className="aspect-square w-full">
+                          {url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={url}
+                              alt={fn}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-slate-300">
+                              <ImageIcon className="h-8 w-8" />
+                            </div>
+                          )}
+                        </div>
+                        <div
+                          className="truncate px-2 py-1 text-[11px] text-slate-600"
+                          title={fn}
+                        >
+                          {fn}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white opacity-90 hover:bg-red-700 hover:opacity-100"
+                          aria-label={t("removeImage")}
+                          title={t("removeImage")}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -594,31 +802,143 @@ export function ProductsPanel() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="p_pdf">{t("pdfUrl")}</Label>
-                <Input
-                  id="p_pdf"
-                  value={form.pdf_url}
-                  onChange={(e) => update("pdf_url", e.target.value)}
-                />
+            {/* ----- PDF (single upload) ----- */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>{t("pdfUrl")}</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => pdfInputRef.current?.click()}
+                  disabled={uploadingPdf}
+                >
+                  {uploadingPdf ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t("uploading")}
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      {t("uploadPdf")}
+                    </>
+                  )}
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="p_brochure">{t("brochurePdf")}</Label>
-                <Input
-                  id="p_brochure"
-                  value={form.brochure_pdf}
-                  onChange={(e) => update("brochure_pdf", e.target.value)}
-                />
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={handlePdfFile}
+              />
+              {form.pdf_url ? (
+                <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                  <FileText className="h-4 w-4 shrink-0 text-red-600" />
+                  <span
+                    className="flex-1 truncate text-sm text-slate-700"
+                    title={form.pdf_url}
+                  >
+                    {form.pdf_url}
+                  </span>
+                  <a
+                    href={getProductImageUrl(form.pdf_url) || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-brand-700 hover:underline"
+                  >
+                    {t("view")}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => update("pdf_url", "")}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-700"
+                    aria-label={t("removeFile")}
+                    title={t("removeFile")}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-400">
+                  {t("noFile")}
+                </p>
+              )}
+            </div>
+
+            {/* ----- Brochure PDF (single upload) ----- */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>{t("brochurePdf")}</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => brochureInputRef.current?.click()}
+                  disabled={uploadingBrochure}
+                >
+                  {uploadingBrochure ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t("uploading")}
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      {t("uploadPdf")}
+                    </>
+                  )}
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="p_video">{t("videoUrl")}</Label>
-                <Input
-                  id="p_video"
-                  value={form.video_url}
-                  onChange={(e) => update("video_url", e.target.value)}
-                />
-              </div>
+              <input
+                ref={brochureInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={handleBrochureFile}
+              />
+              {form.brochure_pdf ? (
+                <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                  <FileText className="h-4 w-4 shrink-0 text-red-600" />
+                  <span
+                    className="flex-1 truncate text-sm text-slate-700"
+                    title={form.brochure_pdf}
+                  >
+                    {form.brochure_pdf}
+                  </span>
+                  <a
+                    href={getProductImageUrl(form.brochure_pdf) || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-brand-700 hover:underline"
+                  >
+                    {t("view")}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => update("brochure_pdf", "")}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-700"
+                    aria-label={t("removeFile")}
+                    title={t("removeFile")}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-400">
+                  {t("noFile")}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="p_video">{t("videoUrl")}</Label>
+              <Input
+                id="p_video"
+                value={form.video_url}
+                onChange={(e) => update("video_url", e.target.value)}
+              />
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -657,7 +977,11 @@ export function ProductsPanel() {
                   {t("cancel")}
                 </Button>
               </DialogClose>
-              <Button type="submit" disabled={saving} className="bg-brand-700 hover:bg-brand-800">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-brand-700 hover:bg-brand-800"
+              >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {t("save")}
               </Button>

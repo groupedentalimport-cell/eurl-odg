@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, Save, AlertTriangle } from "lucide-react";
+import { Loader2, Save, AlertTriangle, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n";
 import { useSettings } from "@/lib/settings-service";
-import type { CompanySettings } from "@/lib/settings-service";
+import type { CompanySettings, MapSettings } from "@/lib/settings-service";
 import { toast } from "@/components/ui/sonner";
 
 const EMPTY_COMPANY: CompanySettings = {
@@ -32,6 +32,14 @@ const EMPTY_COMPANY: CompanySettings = {
   facebook: "",
   instagram: "",
   linkedin: "",
+};
+
+const EMPTY_MAP: MapSettings = {
+  lat: "",
+  lng: "",
+  zoom: "",
+  label_fr: "",
+  label_ar: "",
 };
 
 function Field({
@@ -82,6 +90,7 @@ export function ContactSettingsPanel() {
 
   const [saving, setSaving] = useState(false);
   const [company, setCompany] = useState<CompanySettings>(EMPTY_COMPANY);
+  const [map, setMap] = useState<MapSettings>(EMPTY_MAP);
 
   // Sync from context whenever settings load/change
   useEffect(() => {
@@ -102,24 +111,64 @@ export function ContactSettingsPanel() {
       instagram: c.instagram ?? "",
       linkedin: c.linkedin ?? "",
     });
+    const m = settings.map;
+    setMap({
+      lat: m?.lat ?? "",
+      lng: m?.lng ?? "",
+      zoom: m?.zoom ?? "",
+      label_fr: m?.label_fr ?? "",
+      label_ar: m?.label_ar ?? "",
+    });
   }, [settings]);
 
   const set = (k: keyof CompanySettings) => (v: string) =>
     setCompany((c) => ({ ...c, [k]: v }));
 
+  const setMapField = (k: keyof MapSettings) => (v: string) =>
+    setMap((m) => ({ ...m, [k]: v }));
+
   const save = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/settings", {
+      // 1) Save the company block (existing behavior).
+      const resCompany = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "company", value: company }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || "save failed");
+      const dataCompany = await resCompany.json().catch(() => ({}));
+      if (!resCompany.ok || !dataCompany?.ok) {
+        throw new Error(dataCompany?.error || "company save failed");
       }
-      toast.success(t("saved"));
+
+      // 2) Save the GPS map block. The orchestrator extends the API route
+      //    to translate `{key:"map", value:{lat,lng,zoom,label_fr,label_ar}}`
+      //    into the flat `contact.map.*` row upserts. We send the request
+      //    best-effort: if the API doesn't yet know the "map" key it returns
+      //    400 — we surface a non-fatal warning so the company save still
+      //    succeeds.
+      let mapWarning: string | null = null;
+      try {
+        const resMap = await fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "map", value: map }),
+        });
+        const dataMap = await resMap.json().catch(() => ({}));
+        if (!resMap.ok || !dataMap?.ok) {
+          mapWarning = dataMap?.error || `HTTP ${resMap.status}`;
+        }
+      } catch (e: any) {
+        mapWarning = e?.message || "map save failed";
+      }
+
+      if (mapWarning) {
+        toast.success(t("saved"), {
+          description: `GPS: ${mapWarning}`,
+        });
+      } else {
+        toast.success(t("saved"));
+      }
       refresh(); // reload context so public pages update
     } catch (err: any) {
       toast.error(t("saveFailed"), { description: err?.message || "" });
@@ -281,6 +330,58 @@ export function ContactSettingsPanel() {
               value={company.linkedin}
               onChange={set("linkedin")}
               placeholder="https://linkedin.com/…"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* GPS / Map section — saved as a separate "map" key */}
+      <Card className="border-slate-200">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-brand-700" />
+            <div>
+              <CardTitle className="text-lg">{t("gpsPosition")}</CardTitle>
+              <CardDescription className="mt-1">{t("gpsPositionDesc")}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Field
+              label={t("latitude")}
+              value={map.lat}
+              onChange={setMapField("lat")}
+              placeholder="35.6551"
+            />
+            <Field
+              label={t("longitude")}
+              value={map.lng}
+              onChange={setMapField("lng")}
+              placeholder="-0.6417"
+            />
+            <Field
+              label={t("mapZoom")}
+              value={map.zoom}
+              onChange={setMapField("zoom")}
+              type="number"
+              placeholder="13"
+            />
+          </div>
+          <Separator />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field
+              label={t("mapLabelFr")}
+              value={map.label_fr}
+              onChange={setMapField("label_fr")}
+              placeholder="Cité 1000 Logements, Oran"
+            />
+            <Field
+              label={t("mapLabelAr")}
+              value={map.label_ar}
+              onChange={setMapField("label_ar")}
+              dir="rtl"
+              placeholder="حي 1000 سكن، وهران"
             />
           </div>
         </CardContent>

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, Clock, Facebook, Instagram, Linkedin, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,14 +8,48 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n";
-import { useCompanyInfo } from "@/lib/settings-service";
+import { useCompanyInfo, useSettings } from "@/lib/settings-service";
 import { toast } from "@/components/ui/sonner";
+
+// Oran defaults used when the admin hasn't configured GPS coordinates
+// (or the saved values are empty / unparseable).
+const ORAN_LAT = 35.6551;
+const ORAN_LNG = -0.6417;
+const ORAN_ZOOM = 13;
 
 export function ContactPage() {
   const { lang, t } = useTranslation();
   const COMPANY = useCompanyInfo();
+  const { settings } = useSettings();
   const [form, setForm] = useState({ name: "", email: "", phone: "", subject: "", message: "" });
   const [sending, setSending] = useState(false);
+
+  // Parse the admin-configured GPS values. Fall back to Oran defaults
+  // when empty / NaN so the map always renders something sensible.
+  const { mapSrc, mapLabel } = useMemo(() => {
+    const m = settings.map;
+    const pLat = parseFloat(m?.lat ?? "");
+    const pLng = parseFloat(m?.lng ?? "");
+    const pZoom = parseInt(m?.zoom ?? "", 10);
+    const fLat = Number.isFinite(pLat) ? pLat : ORAN_LAT;
+    const fLng = Number.isFinite(pLng) ? pLng : ORAN_LNG;
+    const fZoom = Number.isFinite(pZoom) && pZoom > 0 ? pZoom : ORAN_ZOOM;
+
+    // OpenStreetMap embed: bbox = [lng-d, lat-d, lng+d, lat+d] where d
+    // scales inversely with zoom (higher zoom → tighter bbox).
+    const d = 0.05 * (ORAN_ZOOM / fZoom);
+    const minLng = (fLng - d).toFixed(6);
+    const maxLng = (fLng + d).toFixed(6);
+    const minLat = (fLat - d).toFixed(6);
+    const maxLat = (fLat + d).toFixed(6);
+    const src =
+      `https://www.openstreetmap.org/export/embed.html` +
+      `?bbox=${minLng}%2C${minLat}%2C${maxLng}%2C${maxLat}` +
+      `&layer=mapnik&marker=${fLat.toFixed(6)}%2C${fLng.toFixed(6)}`;
+
+    const label = (lang === "ar" ? m?.label_ar : m?.label_fr) || "";
+    return { mapSrc: src, mapLabel: label };
+  }, [settings.map, lang]);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -182,13 +216,18 @@ export function ContactPage() {
                 </div>
               </div>
 
-              {/* Map */}
+              {/* Map — dynamic GPS from admin Contact settings */}
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("findUs")}</p>
+                {mapLabel && (
+                  <p className="mb-2 text-sm font-medium text-slate-700" dir={lang === "ar" ? "rtl" : "ltr"}>
+                    {mapLabel}
+                  </p>
+                )}
                 <div className="overflow-hidden rounded-lg border border-slate-200">
                   <iframe
                     title="ODG map"
-                    src="https://www.openstreetmap.org/export/embed.html?bbox=-0.7%2C35.65%2C-0.55%2C35.78&layer=mapnik&marker=35.6911%2C-0.6417"
+                    src={mapSrc}
                     className="h-56 w-full"
                     loading="lazy"
                   />

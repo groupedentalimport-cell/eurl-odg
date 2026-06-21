@@ -1,6 +1,17 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Loader2, Check, X, FileText, AlertTriangle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  Check,
+  X,
+  FileText,
+  AlertTriangle,
+  Upload,
+  Image as ImageIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
 import { useTranslation } from "@/lib/i18n";
+import { getBlogImageUrl } from "@/lib/supabase";
 
 interface PostRow {
   id: string;
@@ -86,7 +98,7 @@ function formToPayload(form: PostForm) {
     titre_ar: form.titre_ar,
     contenu_fr: form.contenu_fr,
     contenu_ar: form.contenu_ar,
-    image_url: form.image_url,
+    image_url: form.image_url || null,
     auteur: form.auteur,
     publie: form.publie,
   };
@@ -106,6 +118,27 @@ function formatDate(iso?: string, lang: "fr" | "ar" = "fr"): string {
   }
 }
 
+// Upload a single image to the blog-images bucket.
+async function uploadImage(
+  file: File
+): Promise<
+  { ok: true; filename: string; url: string } | { ok: false; error: string }
+> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("bucket", "blog-images");
+  try {
+    const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      return { ok: false, error: data?.error || `HTTP ${res.status}` };
+    }
+    return { ok: true, filename: data.filename, url: data.url };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Erreur réseau" };
+  }
+}
+
 export function ArticlesPanel() {
   const { lang, t } = useTranslation();
   const [posts, setPosts] = useState<PostRow[]>([]);
@@ -118,6 +151,10 @@ export function ArticlesPanel() {
   const [form, setForm] = useState<PostForm>(EMPTY_FORM);
   const [slugTouched, setSlugTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Upload state.
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -176,6 +213,22 @@ export function ArticlesPanel() {
     update("slug", val);
   };
 
+  // Single image upload — replaces the current image_url.
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploadingImage(true);
+    const result = await uploadImage(file);
+    if (result.ok) {
+      setForm((prev) => ({ ...prev, image_url: result.filename }));
+      toast.success(t("uploadSuccess"), { description: result.filename });
+    } else {
+      toast.error(t("uploadFailed"), { description: result.error });
+    }
+    setUploadingImage(false);
+  };
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
@@ -194,7 +247,9 @@ export function ArticlesPanel() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(t("saveFailed"), { description: data?.error || `HTTP ${res.status}` });
+        toast.error(t("saveFailed"), {
+          description: data?.error || `HTTP ${res.status}`,
+        });
         return;
       }
       toast.success(t("saved"));
@@ -210,12 +265,15 @@ export function ArticlesPanel() {
   const remove = async (row: PostRow) => {
     if (!window.confirm(t("confirmDelete"))) return;
     try {
-      const res = await fetch(`/api/admin/posts?id=${encodeURIComponent(row.id)}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/admin/posts?id=${encodeURIComponent(row.id)}`,
+        { method: "DELETE" }
+      );
       const data = await res.json();
       if (!res.ok) {
-        toast.error(t("saveFailed"), { description: data?.error || `HTTP ${res.status}` });
+        toast.error(t("saveFailed"), {
+          description: data?.error || `HTTP ${res.status}`,
+        });
         return;
       }
       toast.success(t("saved"));
@@ -242,7 +300,9 @@ export function ArticlesPanel() {
         <CardContent className="flex items-start gap-3 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
           <div className="space-y-1">
-            <p className="text-sm font-medium text-amber-900">{t("tableMissingNotice")}</p>
+            <p className="text-sm font-medium text-amber-900">
+              {t("tableMissingNotice")}
+            </p>
             <Button size="sm" variant="outline" onClick={refresh} className="mt-2">
               {t("retry")}
             </Button>
@@ -305,7 +365,9 @@ export function ArticlesPanel() {
                 <tr key={row.id} className="hover:bg-slate-50/60">
                   <td className="px-4 py-3">
                     <div className="font-medium text-slate-900">
-                      {row.titre_fr || <span className="italic text-slate-400">—</span>}
+                      {row.titre_fr || (
+                        <span className="italic text-slate-400">—</span>
+                      )}
                     </div>
                     {row.titre_ar ? (
                       <div className="text-xs text-slate-500" dir="rtl">
@@ -366,7 +428,9 @@ export function ArticlesPanel() {
         <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? t("editArticle") : t("newArticle")}</DialogTitle>
-            <DialogDescription>{editing ? rowToForm(editing).slug : t("newArticle")}</DialogDescription>
+            <DialogDescription>
+              {editing ? rowToForm(editing).slug : t("newArticle")}
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={save} className="space-y-4">
@@ -412,14 +476,89 @@ export function ArticlesPanel() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="a_image">Image URL</Label>
-              <Input
-                id="a_image"
-                value={form.image_url}
-                onChange={(e) => update("image_url", e.target.value)}
-                placeholder="blog-1.jpg"
+            {/* ----- Image (single upload) ----- */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>{t("images")}</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={uploadingImage}
+                >
+                  {uploadingImage ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t("uploading")}
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      {t("uploadImage")}
+                    </>
+                  )}
+                </Button>
+              </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={handleImageFile}
               />
+              {form.image_url ? (
+                <div className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <div className="h-20 w-28 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
+                    {(() => {
+                      const url = getBlogImageUrl(form.image_url);
+                      return url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={url}
+                          alt={form.image_url}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-slate-300">
+                          <ImageIcon className="h-6 w-6" />
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="truncate text-sm text-slate-700"
+                      title={form.image_url}
+                    >
+                      {form.image_url}
+                    </p>
+                    <div className="mt-2 flex gap-3">
+                      <a
+                        href={getBlogImageUrl(form.image_url) || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-brand-700 hover:underline"
+                      >
+                        {t("view")}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => update("image_url", "")}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {t("removeFile")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-sm text-slate-400">
+                  {t("noFile")}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -458,7 +597,11 @@ export function ArticlesPanel() {
                   {t("cancel")}
                 </Button>
               </DialogClose>
-              <Button type="submit" disabled={saving} className="bg-brand-700 hover:bg-brand-800">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-brand-700 hover:bg-brand-800"
+              >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {t("save")}
               </Button>

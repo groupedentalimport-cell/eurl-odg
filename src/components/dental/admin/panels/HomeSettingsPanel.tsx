@@ -16,6 +16,7 @@ import { useTranslation } from "@/lib/i18n";
 import { useSettings } from "@/lib/settings-service";
 import type { HomeSettings, StatItem } from "@/lib/settings-service";
 import { toast } from "@/components/ui/sonner";
+import { CategoriesPanel } from "./CategoriesPanel";
 
 const EMPTY_HOME: HomeSettings = {
   heroTitle_fr: "",
@@ -318,6 +319,17 @@ export function HomeSettingsPanel() {
             <Plus className="mr-2 h-4 w-4" />
             {t("addStat")}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Catalog categories (admin CRUD) */}
+      <Card className="border-slate-200">
+        <CardHeader>
+          <CardTitle className="text-lg">{t("catalogCategories")}</CardTitle>
+          <CardDescription>{t("catalogCategoriesDesc")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CategoriesPanel />
         </CardContent>
       </Card>
 
