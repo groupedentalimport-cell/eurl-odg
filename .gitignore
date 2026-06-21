@@ -9,6 +9,6 @@ swc-local/
 worklog.md
 agent-ctx/
 tsconfig.tsbuildinfo
-upload/
-download/
+/upload/
+/download/
 *.tsbuildinfo
