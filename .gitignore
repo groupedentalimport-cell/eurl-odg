@@ -12,3 +12,4 @@ tsconfig.tsbuildinfo
 /upload/
 /download/
 *.tsbuildinfo
+tool-results/
