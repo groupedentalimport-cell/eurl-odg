@@ -63,6 +63,25 @@ export interface QuoteItem {
   quantity: number;
 }
 
+// Quote request persisted in the Supabase `quotes` table.
+// Maps to columns: id, nom, email, telephone, wilaya, type_client,
+// message, statut, created_at, produits_selectionnes (jsonb array).
+export type QuoteStatus = "nouveau" | "en_cours" | "traite" | "archive";
+export type ClientType = "dentiste" | "clinique" | "hopital" | "revendeur" | "autre";
+
+export interface QuoteRequest {
+  id: string;
+  nom: string;
+  email: string;
+  telephone: string;
+  wilaya: string;
+  type_client: string;
+  message: string | null;
+  statut: string;
+  created_at: string;
+  produits_selectionnes: QuoteItem[];
+}
+
 export interface CompanyInfo {
   name: string;
   nameAr: string;

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Lock, LogOut, Mail, Package, FileText, Home, Info, Phone, Loader2 } from "lucide-react";
+import { Lock, LogOut, Mail, Package, FileText, Home, Info, Phone, ClipboardList, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import { ArticlesPanel } from "./panels/ArticlesPanel";
 import { HomeSettingsPanel } from "./panels/HomeSettingsPanel";
 import { AboutSettingsPanel } from "./panels/AboutSettingsPanel";
 import { ContactSettingsPanel } from "./panels/ContactSettingsPanel";
+import { QuotesPanel } from "./panels/QuotesPanel";
 
 export function AdminPage() {
   const { lang, t } = useTranslation();
@@ -127,7 +128,7 @@ export function AdminPage() {
       </div>
 
       <Tabs defaultValue="messages" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7">
           <TabsTrigger value="messages">
             <Mail className="mr-1 h-4 w-4" />
             <span className="hidden sm:inline">{t("messages")}</span>
@@ -152,6 +153,10 @@ export function AdminPage() {
             <Phone className="mr-1 h-4 w-4" />
             <span className="hidden sm:inline">{t("settingsContact")}</span>
           </TabsTrigger>
+          <TabsTrigger value="quotes">
+            <ClipboardList className="mr-1 h-4 w-4" />
+            <span className="hidden sm:inline">{t("quotes")}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="messages" className="mt-6">
@@ -171,6 +176,9 @@ export function AdminPage() {
         </TabsContent>
         <TabsContent value="contact" className="mt-6">
           <ContactSettingsPanel />
+        </TabsContent>
+        <TabsContent value="quotes" className="mt-6">
+          <QuotesPanel />
         </TabsContent>
       </Tabs>
     </div>

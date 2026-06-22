@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ShoppingCart,
@@ -16,11 +16,107 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SupabaseImage } from "@/components/dental/ui/SupabaseImage";
 import { useTranslation } from "@/lib/i18n";
 import { useQuoteCart } from "@/hooks/useQuoteCart";
 import { navigate } from "@/lib/router";
 import { toast } from "@/components/ui/sonner";
+
+// 58 Algerian wilayas. The value sent to the API is the wilaya NAME
+// (e.g. "Oran"), not the number — the number is only a display prefix.
+const WILAYAS: string[] = [
+  "Adrar",
+  "Chlef",
+  "Laghouat",
+  "Oum El Bouaghi",
+  "Batna",
+  "Béjaïa",
+  "Biskra",
+  "Béchar",
+  "Blida",
+  "Bouira",
+  "Tamanrasset",
+  "Tébessa",
+  "Tlemcen",
+  "Tiaret",
+  "Tizi Ouzou",
+  "Alger",
+  "Djelfa",
+  "Jijel",
+  "Sétif",
+  "Saïda",
+  "Skikda",
+  "Sidi Bel Abbès",
+  "Annaba",
+  "Guelma",
+  "Constantine",
+  "Médéa",
+  "Mostaganem",
+  "M'Sila",
+  "Mascara",
+  "Ouargla",
+  "Oran",
+  "El Bayadh",
+  "Illizi",
+  "Bordj Bou Arréridj",
+  "Boumerdès",
+  "El Tarf",
+  "Tindouf",
+  "Tissemsilt",
+  "El Oued",
+  "Khenchela",
+  "Souk Ahras",
+  "Tipaza",
+  "Mila",
+  "Aïn Defla",
+  "Naâma",
+  "Aïn Témouchent",
+  "Ghardaïa",
+  "Relizane",
+  "Timimoun",
+  "Bordj Badji Mokhtar",
+  "Ouled Djellal",
+  "Béni Abbès",
+  "In Salah",
+  "In Guezzam",
+  "Touggourt",
+  "Djanet",
+  "El M'Ghair",
+  "El Meniaa",
+];
+
+// Display label with the official wilaya number prefix (01..58).
+function wilayaLabel(idx: number, name: string): string {
+  const num = String(idx + 1).padStart(2, "0");
+  return `${num} ${name}`;
+}
+
+interface FormState {
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  wilaya: string;
+  type_client: string;
+  message: string;
+}
+
+const DEFAULT_FORM: FormState = {
+  name: "",
+  email: "",
+  phone: "",
+  company: "",
+  wilaya: "Oran",
+  type_client: "dentiste",
+  message: "",
+};
 
 export function QuotePage() {
   const { t, lang } = useTranslation();
@@ -30,41 +126,11 @@ export function QuotePage() {
   const remove = useQuoteCart((s) => s.remove);
   const clear = useQuoteCart((s) => s.clear);
 
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    company: "",
-    message: "",
-  });
+  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [submitting, setSubmitting] = useState(false);
 
   const totalProducts = items.length;
   const totalQuantity = totalItems;
-
-  const body = useMemo(() => {
-    const lines = items
-      .map(
-        (i, idx) =>
-          `${idx + 1}. ${i.brand} ${i.model} — ${i.name[lang]} (x${i.quantity})`
-      )
-      .join("\n");
-    return [
-      `Demande de devis — OUADAH DENTAL GROUPE`,
-      ``,
-      `Client : ${form.name}`,
-      `Email : ${form.email}`,
-      `Téléphone : ${form.phone}`,
-      form.company ? `Société : ${form.company}` : "",
-      ``,
-      `Articles (${totalQuantity}) :`,
-      lines || "(panier vide)",
-      ``,
-      form.message ? `Message :\n${form.message}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }, [items, form, totalQuantity, lang]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,24 +142,35 @@ export function QuotePage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/contact", {
+      // There is no `company` column in the `quotes` table. When the user
+      // provides a company, we prepend it to the message so it is preserved.
+      const composedMessage = form.company
+        ? `Société: ${form.company}\n\n${form.message}`.trim()
+        : form.message.trim();
+
+      const res = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: form.name,
+          nom: form.name,
           email: form.email,
-          phone: form.phone,
-          subject: "Demande de devis",
-          body,
+          telephone: form.phone,
+          wilaya: form.wilaya,
+          type_client: form.type_client,
+          message: composedMessage,
+          produits_selectionnes: items,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "Erreur d'envoi");
+        throw new Error(data?.error || "Erreur d'envoi");
       }
-      toast.success(t("quoteSent"), { description: t("quoteSentDesc") });
+
+      toast.success(t("quoteReceived"), {
+        description: t("quoteReceivedDesc"),
+      });
       clear();
-      setForm({ name: "", email: "", phone: "", company: "", message: "" });
+      setForm(DEFAULT_FORM);
     } catch (err: any) {
       toast.error(t("sentFail"), { description: err.message || "" });
     } finally {
@@ -324,6 +401,60 @@ export function QuotePage() {
                         placeholder="+213 ..."
                       />
                     </Field>
+
+                    {/* Wilaya + Type de client — 2 columns on >= sm */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label={t("wilaya")}>
+                        <Select
+                          value={form.wilaya}
+                          onValueChange={(v) =>
+                            setForm({ ...form, wilaya: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={t("wilaya")} />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {WILAYAS.map((w, idx) => (
+                              <SelectItem key={w} value={w}>
+                                {wilayaLabel(idx, w)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+
+                      <Field label={t("clientType")}>
+                        <Select
+                          value={form.type_client}
+                          onValueChange={(v) =>
+                            setForm({ ...form, type_client: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={t("clientType")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="dentiste">
+                              {t("clientTypeDentist")}
+                            </SelectItem>
+                            <SelectItem value="clinique">
+                              {t("clientTypeClinic")}
+                            </SelectItem>
+                            <SelectItem value="hopital">
+                              {t("clientTypeHospital")}
+                            </SelectItem>
+                            <SelectItem value="revendeur">
+                              {t("clientTypeReseller")}
+                            </SelectItem>
+                            <SelectItem value="autre">
+                              {t("clientTypeOther")}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+
                     <Field label={t("company")}>
                       <Input
                         value={form.company}
@@ -411,11 +542,9 @@ function QuoteEmpty() {
         </Button>
       </div>
 
-      <div className="mx-auto mt-10 flex max-w-md items-center gap-3 rounded-lg border border-brand-100 bg-brand-50/60 p-4 text-start text-sm text-brand-800">
+      <div className="mx-auto mt-10 flex max-w-md items-start gap-3 rounded-lg border border-brand-100 bg-brand-50/60 p-4 text-start text-sm text-brand-800">
         <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-600" />
-        <span>
-          {t("quoteSent")}
-        </span>
+        <span>{t("quoteEmptyCart")}</span>
       </div>
     </div>
   );
