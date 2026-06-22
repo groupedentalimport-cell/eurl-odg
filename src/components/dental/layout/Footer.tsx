@@ -17,9 +17,11 @@ export function Footer() {
           {/* Brand */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white font-bold">
-                ODG
-              </div>
+              <img
+                src="/logo-odg.png"
+                alt="OUADAH DENTAL GROUPE"
+                className="h-10 w-auto object-contain brightness-0 invert"
+              />
               <span className="text-sm font-bold text-white">
                 {lang === "ar" ? COMPANY.nameAr : COMPANY.name}
               </span>

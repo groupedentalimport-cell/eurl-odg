@@ -117,9 +117,16 @@ export function AdminPage() {
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">{t("dashboard")}</h1>
-          <p className="mt-1 text-sm text-slate-500">OUADAH DENTAL GROUPE — Admin</p>
+        <div className="flex items-center gap-3">
+          <img
+            src="/logo-odg.png"
+            alt="OUADAH DENTAL GROUPE"
+            className="h-12 w-auto object-contain"
+          />
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">{t("dashboard")}</h1>
+            <p className="mt-1 text-sm text-slate-500">OUADAH DENTAL GROUPE — Admin</p>
+          </div>
         </div>
         <Button variant="outline" onClick={logout}>
           <LogOut className="mr-2 h-4 w-4" />

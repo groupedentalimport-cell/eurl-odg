@@ -40,9 +40,11 @@ export function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <button onClick={() => go("")} className="flex items-center gap-2" aria-label="ODG home">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-700 text-white font-bold text-lg shadow-sm">
-            ODG
-          </div>
+          <img
+            src="/logo-odg.png"
+            alt="OUADAH DENTAL GROUPE"
+            className="h-10 w-auto object-contain"
+          />
           <div className="hidden flex-col leading-tight sm:flex">
             <span className="text-sm font-bold text-slate-900">{lang === "ar" ? COMPANY.nameAr : COMPANY.name}</span>
             <span className="text-[10px] text-slate-500">{COMPANY.city}, {COMPANY.country}</span>
