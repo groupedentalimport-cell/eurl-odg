@@ -10,18 +10,21 @@ import {
   PackageSearch,
   Download,
   Users,
+  ZoomIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SupabaseImage } from "@/components/dental/ui/SupabaseImage";
+import { ImageLightbox, type LightboxImage } from "@/components/dental/ui/ImageLightbox";
 import { ProductCard } from "@/components/dental/catalogue/ProductCard";
 import { useTranslation } from "@/lib/i18n";
 import { useData, useProductBySlug } from "@/lib/data-service";
 import { useQuoteCart } from "@/hooks/useQuoteCart";
 import { useCompare } from "@/hooks/useCompare";
 import { navigate } from "@/lib/router";
+import { getProductImageUrl } from "@/lib/supabase";
 import { toast } from "@/components/ui/sonner";
 
 export function ProductPage({ slug }: { slug?: string }) {
@@ -31,6 +34,8 @@ export function ProductPage({ slug }: { slug?: string }) {
   const addToQuote = useQuoteCart((s) => s.add);
   const compare = useCompare((s) => s);
   const [activeImage, setActiveImage] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const category = useMemo(
     () =>
@@ -49,6 +54,20 @@ export function ProductPage({ slug }: { slug?: string }) {
       )
       .slice(0, 4);
   }, [product, products]);
+
+  // Build the lightbox image list from the product's image filenames.
+  // Filenames whose URL can't be resolved (Supabase not configured) are skipped.
+  const lightboxImages: LightboxImage[] = useMemo(() => {
+    if (!product) return [];
+    return (product.images || [])
+      .map((fn) => {
+        const url = getProductImageUrl(fn);
+        return url ? { url, filename: fn, alt: product.name[lang] } : null;
+      })
+      .filter(
+        (x): x is { url: string; filename: string; alt: string } => x !== null
+      );
+  }, [product, lang]);
 
   if (!loading && !product) {
     return <ProductNotFound />;
@@ -83,6 +102,14 @@ export function ProductPage({ slug }: { slug?: string }) {
     }
     compare.add(product);
     toast.success("Ajouté au comparateur");
+  };
+
+  // Open the full-screen lightbox at the image whose filename matches `fn`.
+  const openLightbox = (fn: string) => {
+    const lbIdx = lightboxImages.findIndex((img) => img.filename === fn);
+    if (lbIdx === -1) return;
+    setLightboxIndex(lbIdx);
+    setLightboxOpen(true);
   };
 
   return (
@@ -130,15 +157,28 @@ export function ProductPage({ slug }: { slug?: string }) {
           >
             <Card className="overflow-hidden border-slate-200">
               <div className="relative aspect-square w-full bg-slate-100">
-                <SupabaseImage
-                  filename={activeImg}
-                  alt={product.name[lang]}
-                  fallbackText={product.name[lang]}
-                  width={800}
-                  height={800}
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute left-3 top-3 flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => openLightbox(activeImg)}
+                  disabled={lightboxImages.length === 0}
+                  className="group absolute inset-0 flex cursor-zoom-in items-center justify-center disabled:cursor-default"
+                  aria-label="Zoom"
+                >
+                  <SupabaseImage
+                    filename={activeImg}
+                    alt={product.name[lang]}
+                    fallbackText={product.name[lang]}
+                    width={800}
+                    height={800}
+                    className="h-full w-full object-cover"
+                  />
+                  {lightboxImages.length > 0 && (
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity duration-150 group-hover:bg-black/20 group-hover:opacity-100">
+                      <ZoomIn className="h-10 w-10 text-white" />
+                    </span>
+                  )}
+                </button>
+                <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1.5">
                   {product.featured && (
                     <Badge variant="default">{t("featured")}</Badge>
                   )}
@@ -344,6 +384,13 @@ export function ProductPage({ slug }: { slug?: string }) {
           </section>
         )}
       </div>
+
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+      />
     </div>
   );
 }

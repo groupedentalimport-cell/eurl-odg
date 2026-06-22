@@ -13,6 +13,7 @@ import {
   Upload,
   FileText,
   Image as ImageIcon,
+  ZoomIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -39,6 +40,7 @@ import { toast } from "@/components/ui/sonner";
 import { useTranslation } from "@/lib/i18n";
 import { useData } from "@/lib/data-service";
 import { getProductImageUrl } from "@/lib/supabase";
+import { ImageLightbox, type LightboxImage } from "@/components/dental/ui/ImageLightbox";
 
 interface ProductRow {
   id: string;
@@ -241,6 +243,30 @@ export function ProductsPanel() {
   } | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadingBrochure, setUploadingBrochure] = useState(false);
+
+  // Lightbox state — opens a full-screen viewer for the form's image
+  // thumbnails. Index is resolved against `lightboxImages` (which filters
+  // out any filenames whose URL couldn't be resolved).
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const lightboxImages: LightboxImage[] = useMemo(
+    () =>
+      form.images
+        .map((fn) => {
+          const url = getProductImageUrl(fn);
+          return url ? { url, filename: fn, alt: fn } : null;
+        })
+        .filter((x): x is { url: string; filename: string; alt: string } => x !== null),
+    [form.images]
+  );
+
+  const openLightbox = (fn: string) => {
+    const lbIdx = lightboxImages.findIndex((img) => img.filename === fn);
+    if (lbIdx === -1) return;
+    setLightboxIndex(lbIdx);
+    setLightboxOpen(true);
+  };
 
   // Hidden <input type="file"> refs — clicked via Button onClick.
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -755,7 +781,14 @@ export function ProductsPanel() {
                         key={`${fn}-${idx}`}
                         className="group relative overflow-hidden rounded-md border border-slate-200 bg-slate-50"
                       >
-                        <div className="aspect-square w-full">
+                        <button
+                          type="button"
+                          onClick={() => openLightbox(fn)}
+                          disabled={!url}
+                          className="relative block aspect-square w-full disabled:cursor-default"
+                          aria-label={url ? "Zoom" : undefined}
+                          title={url ? "Zoom" : undefined}
+                        >
                           {url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -769,7 +802,12 @@ export function ProductsPanel() {
                               <ImageIcon className="h-8 w-8" />
                             </div>
                           )}
-                        </div>
+                          {url && (
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity duration-150 group-hover:bg-black/30 group-hover:opacity-100">
+                              <ZoomIn className="h-7 w-7 text-white" />
+                            </span>
+                          )}
+                        </button>
                         <div
                           className="truncate px-2 py-1 text-[11px] text-slate-600"
                           title={fn}
@@ -980,6 +1018,13 @@ export function ProductsPanel() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+      />
     </div>
   );
 }
