@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildCatalogueContext } from "@/lib/chat-context";
-import { COMPANY } from "@/lib/types";
+import { getLiveCompanyInfo, type LiveCompanyInfo } from "@/lib/chat-company";
 
 // ---------------------------------------------------------------------------
 // Language handling
@@ -13,21 +13,28 @@ const LANG_WORD: Record<ChatLang, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// System prompt assembly
+// System prompt assembly — uses LIVE company info from site_settings
+// (the same source the admin Contact tab edits), NOT the hardcoded COMPANY
+// constant. Falls back to COMPANY only if Supabase is unreachable.
 // ---------------------------------------------------------------------------
-function buildSystemPrompt(catalogueCtx: string, lang: ChatLang): string {
+function buildSystemPrompt(
+  catalogueCtx: string,
+  lang: ChatLang,
+  c: LiveCompanyInfo
+): string {
   const langWord = LANG_WORD[lang];
+  const langLabel = lang === "ar" ? c.nameAr : c.name;
   return [
-    `Tu es l'assistant virtuel de OUADAH DENTAL GROUPE (ODG), importateur de matériel dentaire à Oran, Algérie.`,
+    `Tu es l'assistant virtuel de ${c.name} (ODG), importateur de matériel dentaire à ${c.city}, ${c.country}.`,
     ``,
     `À PROPOS D'ODG:`,
     `- Importateur exclusif de Silver Fox (fauteuils dentaires), ICANCLAVE (autoclaves), OWANDY (radiologie)`,
-    `- Basé à Oran, couvre toute l'Algérie (58 wilayas)`,
+    `- Basé à ${c.city}, couvre toute l'Algérie (58 wilayas)`,
     `- Service après-vente, installation, formation inclus`,
     `- Garantie 24 mois sur tous les produits`,
-    `- Contact: ${COMPANY.phone}, ${COMPANY.email}`,
-    `- Adresse: ${COMPANY.address.fr}, ${COMPANY.city}, ${COMPANY.country}`,
-    `- Horaires: ${COMPANY.hours.fr}`,
+    `- Contact: ${c.phone}${c.phone2 ? ` (ou ${c.phone2})` : ""}, ${c.email}`,
+    `- Adresse: ${c.address_fr}, ${c.city}, ${c.country}`,
+    `- Horaires: ${c.hours_fr}`,
     ``,
     catalogueCtx,
     ``,
@@ -36,22 +43,24 @@ function buildSystemPrompt(catalogueCtx: string, lang: ChatLang): string {
     `- Sois bref (3-4 phrases max), professionnel et chaleureux`,
     `- Cite des noms de produits spécifiques du catalogue quand pertinent`,
     `- NE donne JAMAIS de prix exact — dis "sur devis" et oriente vers une demande de devis`,
-    `- Si l'utilisateur demande un prix, propose-lui de remplir le formulaire de devis (#/devis) ou de contacter le ${COMPANY.phone}`,
+    `- Si l'utilisateur demande un prix, propose-lui de remplir le formulaire de devis (#/devis) ou de contacter le ${c.phone}`,
     `- Si l'utilisateur demande un produit spécifique, donne le nom exact + marque + modèle + catégorie`,
     `- Tu peux suggérer de comparer des produits, visiter le catalogue (#/catalogue), ou contacter l'équipe`,
     `- Reste dans le domaine du matériel dentaire — si la question est hors sujet, redirige poliment vers les produits ODG`,
+    `- Important: l'entreprise s'appelle "${langLabel}" — utilise toujours ce nom exact`,
   ].join("\n");
 }
 
 // ---------------------------------------------------------------------------
-// Canned fallback — richer keyword routing (kept as a safety net)
+// Canned fallback — richer keyword routing (kept as a safety net).
+// Also uses LIVE company info so the phone/email shown is always current.
 // ---------------------------------------------------------------------------
-function cannedReply(userMessage: string): string {
+function cannedReply(userMessage: string, c: LiveCompanyInfo): string {
   const msg = (userMessage || "").toLowerCase();
 
   // Greetings
   if (/(bonjour|salam|salut|hello|hi|coucou|مرحبا|السلام|صباح|مساء)/.test(msg)) {
-    return `Bonjour ! Je suis l'assistant ODG. Nous proposons des fauteuils Silver Fox, des autoclaves ICANCLAVE et des solutions de radiologie OWANDY. Comment puis-je vous aider aujourd'hui ?`;
+    return `Bonjour ! Je suis l'assistant ${c.name}. Nous proposons des fauteuils Silver Fox, des autoclaves ICANCLAVE et des solutions de radiologie OWANDY. Comment puis-je vous aider aujourd'hui ?`;
   }
 
   // Fauteuils / chairs
@@ -60,7 +69,7 @@ function cannedReply(userMessage: string): string {
   }
 
   // Autoclaves / stérilisation
-  if (/autoclave|stéril|steril|تعقيم|أوتوكلاف|autoclave/.test(msg)) {
+  if (/autoclave|stéril|steril|تعقيم|أوتوكلاف/.test(msg)) {
     return "Nos autoclaves ICANCLAVE classe B : 18 L (STE-18-D) pour cabinets, et 45 L (STE-45-T) pour flux importants. Conformes à la norme EN 13060. Voulez-vous un devis personnalisé ?";
   }
 
@@ -76,7 +85,7 @@ function cannedReply(userMessage: string): string {
 
   // Contact / phone
   if (/contact|téléphone|telephone|phone|numéro|numero|اتصال|هاتف|jawal|جوال/.test(msg)) {
-    return `Vous pouvez nous contacter au ${COMPANY.phone} (ou ${COMPANY.phone2}) ou par email à ${COMPANY.email}. Adresse : ${COMPANY.address.fr}, ${COMPANY.city}.`;
+    return `Vous pouvez nous contacter au ${c.phone}${c.phone2 ? ` (ou ${c.phone2})` : ""} ou par email à ${c.email}. Adresse : ${c.address_fr}, ${c.city}.`;
   }
 
   // Livraison / shipping
@@ -86,7 +95,7 @@ function cannedReply(userMessage: string): string {
 
   // Garantie
   if (/garantie|warranty|ضمان/.test(msg)) {
-    return `Tous nos produits sont garantis 24 mois (pièces et main-d'œuvre). Le SAV ODG assure l'installation, la formation et le suivi. Pour toute réclamation, contactez le ${COMPANY.phone}.`;
+    return `Tous nos produits sont garantis 24 mois (pièces et main-d'œuvre). Le SAV ${c.name} assure l'installation, la formation et le suivi. Pour toute réclamation, contactez le ${c.phone}.`;
   }
 
   // Formation / installation
@@ -101,11 +110,11 @@ function cannedReply(userMessage: string): string {
 
   // Horaires
   if (/horaires|heure|ouvert|temps|أوقات|دوام/.test(msg)) {
-    return `Nos horaires : ${COMPANY.hours.fr}. Nous sommes basés à ${COMPANY.city}, ${COMPANY.country}.`;
+    return `Nos horaires : ${c.hours_fr}. Nous sommes basés à ${c.city}, ${c.country}.`;
   }
 
   // Default
-  return `Bonjour ! Je suis l'assistant ODG. Nous proposons des fauteuils Silver Fox, des autoclaves ICANCLAVE et des solutions de radiologie OWANDY. Pour un conseil personnalisé ou un devis, contactez-nous via #/contact ou au ${COMPANY.phone}.`;
+  return `Bonjour ! Je suis l'assistant ${c.name}. Nous proposons des fauteuils Silver Fox, des autoclaves ICANCLAVE et des solutions de radiologie OWANDY. Pour un conseil personnalisé ou un devis, contactez-nous via #/contact ou au ${c.phone}.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +124,6 @@ const LLM_TIMEOUT_MS = 15_000;
 
 async function callZaiLLM(messages: Array<{ role: string; content: string }>): Promise<string | null> {
   // Indirect dynamic import to avoid Turbopack static-resolution warnings.
-  // The SDK is server-only and resolves fine at runtime via Node resolution.
   const dynamicImport = new Function("m", "return import(m)") as (m: string) => Promise<any>;
   const ZAIModule = await dynamicImport("z-ai-web-dev-sdk");
   const ZAI = ZAIModule?.default || ZAIModule;
@@ -130,7 +138,6 @@ async function callZaiLLM(messages: Array<{ role: string; content: string }>): P
     const t = setTimeout(() => {
       reject(new Error(`LLM call timed out after ${LLM_TIMEOUT_MS}ms`));
     }, LLM_TIMEOUT_MS);
-    // Allow the Node process to exit even if the timer is still pending.
     if (typeof t === "object" && t && "unref" in t && typeof (t as any).unref === "function") {
       (t as any).unref();
     }
@@ -173,7 +180,13 @@ export async function POST(req: NextRequest) {
         .filter((m: { content: string }) => m.content.length > 0)
     : [];
 
-  // 3. Build system prompt with live catalogue context (cached 5 min)
+  // 3. Fetch LIVE company info from site_settings (cached 5 min).
+  //    This is the SAME source the admin Contact tab edits, so the chatbot
+  //    always uses the current phone/email/address — never the hardcoded
+  //    COMPANY constant.
+  const company = await getLiveCompanyInfo();
+
+  // 4. Build system prompt with live catalogue context (cached 5 min)
   let catalogueCtx: string;
   try {
     catalogueCtx = await buildCatalogueContext();
@@ -183,9 +196,9 @@ export async function POST(req: NextRequest) {
       "CATALOGUE ODG (mode dégradé): Silver Fox, ICANCLAVE, OWANDY — consultez #/catalogue.";
   }
 
-  const systemPrompt = buildSystemPrompt(catalogueCtx, lang);
+  const systemPrompt = buildSystemPrompt(catalogueCtx, lang, company);
 
-  // 4. Try the LLM
+  // 5. Try the LLM
   try {
     const messages = [
       { role: "system", content: systemPrompt },
@@ -199,16 +212,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ reply, provider: "zai" });
     }
 
-    // Empty reply → fall back to canned
+    // Empty reply → fall back to canned (with live company info)
     return NextResponse.json({
-      reply: cannedReply(message),
+      reply: cannedReply(message, company),
       provider: "canned",
       note: "LLM returned empty content; using canned response.",
     });
   } catch (err: any) {
     console.error("[chat] z-ai-web-dev-sdk failed:", err?.message || err);
     return NextResponse.json({
-      reply: cannedReply(message),
+      reply: cannedReply(message, company),
       provider: "canned",
       note: "LLM SDK unavailable or timed out; using canned response.",
     });
