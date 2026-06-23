@@ -330,6 +330,26 @@ export const T = {
   quoteReceived: { fr: "Demande de devis envoyée !", ar: "تم إرسال طلب العرض!" },
   quoteReceivedDesc: { fr: "Nous vous contactons sous 24h.", ar: "سنتواصل معك خلال 24 ساعة." },
   quoteEmptyCart: { fr: "Votre panier est vide. Ajoutez des produits depuis le catalogue.", ar: "سلتك فارغة. أضف منتجات من الكتالوج." },
+  // === Chatbot Niveau 2 (Task C2) — intuitive UX upgrade ===
+  chatOnline: { fr: "En ligne", ar: "متصل" },
+  chatNewConversation: { fr: "Nouvelle conversation", ar: "محادثة جديدة" },
+  chatActionQuote: { fr: "Demander un devis", ar: "طلب عرض سعر" },
+  chatActionCall: { fr: "Appeler", ar: "اتصل" },
+  chatActionWhatsapp: { fr: "WhatsApp", ar: "واتساب" },
+  chatActionCatalogue: { fr: "Voir le catalogue", ar: "الكتالوج" },
+  chatActionContact: { fr: "Contact", ar: "اتصل بنا" },
+  chatTypingODG: { fr: "ODG tape…", ar: "ODG يكتب…" },
+  chatRichWelcome: {
+    fr: "👋 Bonjour ! Je suis l'assistant ODG.\n\nJe peux vous aider à :\n• Choisir un fauteuil dentaire\n• Comparer des autoclaves\n• Découvrir nos solutions de radiologie\n• Demander un devis personnalisé\n\nQue puis-je faire pour vous ?",
+    ar: "👋 مرحبا! أنا مساعد ODG.\n\nيمكنني مساعدتك في:\n• اختيار كرسي أسنان\n• مقارنة أجهزة التعقيم\n• اكتشاف حلول الأشعة لدينا\n• طلب عرض سعر مخصص\n\nكيف يمكنني مساعدتك؟",
+  },
+  chatSuggestionAutoclaves: { fr: "Voir les autoclaves", ar: "أجهزة التعقيم" },
+  chatSuggestionComparer: { fr: "Comparer", ar: "قارن" },
+  chatSuggestionForm: { fr: "Remplir le formulaire", ar: "تعبئة النموذج" },
+  chatSuggestionFauteuils: { fr: "Voir les fauteuils", ar: "الكراسي" },
+  chatSuggestionRadiologie: { fr: "Vos solutions de radiologie", ar: "حلول الأشعة" },
+  chatSuggestionCall: { fr: "Appeler", ar: "اتصل" },
+  chatSuggestionWhatsapp: { fr: "WhatsApp", ar: "واتساب" },
 } as const;
 
 export type TKey = keyof typeof T;
