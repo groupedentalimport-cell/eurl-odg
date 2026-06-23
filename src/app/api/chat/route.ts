@@ -120,14 +120,34 @@ function cannedReply(userMessage: string, c: LiveCompanyInfo): string {
 // ---------------------------------------------------------------------------
 // LLM call with timeout
 // ---------------------------------------------------------------------------
-const LLM_TIMEOUT_MS = 15_000;
+const LLM_TIMEOUT_MS = 30_000;
 
 async function callZaiLLM(messages: Array<{ role: string; content: string }>): Promise<string | null> {
   // Indirect dynamic import to avoid Turbopack static-resolution warnings.
   const dynamicImport = new Function("m", "return import(m)") as (m: string) => Promise<any>;
   const ZAIModule = await dynamicImport("z-ai-web-dev-sdk");
   const ZAI = ZAIModule?.default || ZAIModule;
-  const zai = await ZAI.create();
+
+  // The SDK's ZAI.create() looks for a .z-ai-config FILE in cwd/home//etc —
+  // which doesn't exist on Vercel. So we instantiate the ZAI class directly
+  // with config from environment variables (set on Vercel + locally in .env).
+  //
+  // Required env vars:
+  //   ZAI_BASE_URL   — e.g. https://internal-api.z.ai/v1
+  //   ZAI_API_KEY    — the API key
+  //   ZAI_TOKEN      — JWT token (optional but recommended)
+  //   ZAI_USER_ID    — user id (optional)
+  //   ZAI_CHAT_ID    — chat session id (optional)
+  const config: Record<string, string> = {
+    baseUrl: process.env.ZAI_BASE_URL || "https://internal-api.z.ai/v1",
+    apiKey: process.env.ZAI_API_KEY || "Z.ai",
+  };
+  if (process.env.ZAI_TOKEN) config.token = process.env.ZAI_TOKEN;
+  if (process.env.ZAI_USER_ID) config.userId = process.env.ZAI_USER_ID;
+  if (process.env.ZAI_CHAT_ID) config.chatId = process.env.ZAI_CHAT_ID;
+
+  // Instantiate directly — bypasses the file-based loadConfig() that fails on Vercel
+  const zai = new ZAI(config);
 
   const completionPromise = zai.chat.completions.create({
     messages,
