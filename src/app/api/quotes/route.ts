@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase";
+import {
+  sendQuoteConfirmation,
+  sendQuoteNotificationToAdmin,
+} from "@/lib/email";
 
 // PUBLIC quote submission endpoint.
 // Anyone can POST a quote request here (no admin auth required).
@@ -153,6 +157,32 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    // ---- Email notifications (non-blocking) ----
+    // The DB insert succeeded, so the user's request is fulfilled.
+    // Email failures must NEVER break this response — we log and continue.
+    try {
+      await sendQuoteConfirmation(email, nom, {
+        produits: produits_selectionnes,
+        wilaya,
+        type_client,
+      });
+    } catch (e) {
+      console.error("[quotes] client email failed:", e);
+    }
+    try {
+      await sendQuoteNotificationToAdmin({
+        nom,
+        email,
+        telephone,
+        wilaya,
+        type_client,
+        message,
+        produits: produits_selectionnes,
+      });
+    } catch (e) {
+      console.error("[quotes] admin email failed:", e);
     }
 
     return NextResponse.json({ ok: true, id: data?.id ?? null });

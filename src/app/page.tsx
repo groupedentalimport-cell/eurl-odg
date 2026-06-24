@@ -16,6 +16,8 @@ const ContactPage = dynamic(() => import("@/components/dental/contact/ContactPag
 const ComparePage = dynamic(() => import("@/components/dental/compare/ComparePage").then(m => m.ComparePage), { ssr: false, loading: () => <PageLoader /> });
 const QuotePage = dynamic(() => import("@/components/dental/quote/QuotePage").then(m => m.QuotePage), { ssr: false, loading: () => <PageLoader /> });
 const AdminPage = dynamic(() => import("@/components/dental/admin/AdminPage").then(m => m.AdminPage), { ssr: false, loading: () => <PageLoader /> });
+const MentionsLegales = dynamic(() => import("@/components/dental/legal/MentionsLegales").then(m => m.MentionsLegales), { ssr: false, loading: () => <PageLoader /> });
+const PolitiqueConfidentialite = dynamic(() => import("@/components/dental/legal/PolitiqueConfidentialite").then(m => m.PolitiqueConfidentialite), { ssr: false, loading: () => <PageLoader /> });
 const ChatbotWidget = dynamic(() => import("@/components/dental/chatbot/ChatbotWidget").then(m => m.ChatbotWidget), { ssr: false });
 const WhatsAppWidget = dynamic(() => import("@/components/dental/chatbot/WhatsAppWidget").then(m => m.WhatsAppWidget), { ssr: false });
 
@@ -43,6 +45,8 @@ export default function Home() {
       case "contact": return <ContactPage />;
       case "compare": return <ComparePage />;
       case "quote": return <QuotePage />;
+      case "mentions-legales": return <MentionsLegales />;
+      case "confidentialite": return <PolitiqueConfidentialite />;
       case "admin": return <AdminPage />;
       default: return <HomePage />;
     }

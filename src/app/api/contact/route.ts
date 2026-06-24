@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase";
+import {
+  sendContactNotificationToAdmin,
+  sendContactConfirmationToClient,
+} from "@/lib/email";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,6 +82,26 @@ export async function POST(req: NextRequest) {
         { error: "Erreur lors de l'enregistrement du message.", detail: error.message },
         { status: 500 }
       );
+    }
+
+    // ---- Email notifications (non-blocking) ----
+    // The DB insert succeeded, so the user's request is fulfilled.
+    // Email failures must NEVER break this response — we log and continue.
+    try {
+      await sendContactNotificationToAdmin({
+        name,
+        email,
+        phone,
+        subject,
+        body: messageBody,
+      });
+    } catch (e) {
+      console.error("[contact] admin email failed:", e);
+    }
+    try {
+      await sendContactConfirmationToClient(email, name, subject);
+    } catch (e) {
+      console.error("[contact] client email failed:", e);
     }
 
     return NextResponse.json({ ok: true, id: data?.id ?? null });

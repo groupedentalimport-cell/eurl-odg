@@ -53,6 +53,10 @@ export function parseRoute(hash: string): RouteMatch {
     case "devis":
     case "quote":
       return { page: "quote", params: {} };
+    case "mentions-legales":
+      return { page: "mentions-legales", params: {} };
+    case "confidentialite":
+      return { page: "confidentialite", params: {} };
     case "admin":
       return { page: "admin", params: {} };
     default:

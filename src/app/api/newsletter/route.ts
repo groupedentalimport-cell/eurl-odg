@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase";
+import { sendNewsletterWelcome } from "@/lib/email";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -81,6 +82,16 @@ export async function POST(req: NextRequest) {
         { error: "Erreur lors de l'abonnement.", detail: error.message },
         { status: 500 }
       );
+    }
+
+    // ---- Welcome email (non-blocking) ----
+    // Only sent on a NEW subscription. Duplicate subscriptions (already
+    // subscribed) short-circuit above and never reach this point.
+    // Email failures must NEVER break this response — we log and continue.
+    try {
+      await sendNewsletterWelcome(email);
+    } catch (e) {
+      console.error("[newsletter] welcome email failed:", e);
     }
 
     return NextResponse.json({ ok: true, id: data?.id ?? null });

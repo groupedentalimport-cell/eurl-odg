@@ -647,6 +647,34 @@ export const T = {
   dashIntervention: { fr: "Intervention", ar: "تدخل" },
   dashChargementStats: { fr: "Chargement des statistiques…", ar: "جاري تحميل الإحصائيات…" },
   dashErreurChargement: { fr: "Impossible de charger certaines statistiques.", ar: "تعذّر تحميل بعض الإحصائيات." },
+  // === Legal pages (Task LEGAL-1) ===
+  legalNotices: { fr: "Mentions légales", ar: "إشعار قانوني" },
+  privacyPolicy: { fr: "Politique de confidentialité", ar: "سياسة الخصوصية" },
+  legalBreadcrumbHome: { fr: "Accueil", ar: "الرئيسية" },
+  legalLastUpdate: { fr: "Dernière mise à jour", ar: "آخر تحديث" },
+  legalBackHome: { fr: "Retour à l'accueil", ar: "العودة إلى الرئيسية" },
+  // Mentions légales sections
+  mlTitle: { fr: "Mentions légales", ar: "إشعار قانوني" },
+  mlSectionEditor: { fr: "Éditeur du site", ar: "ناشر الموقع" },
+  mlSectionPublication: { fr: "Responsable de la publication", ar: "المسؤول عن النشر" },
+  mlSectionHost: { fr: "Hébergement", ar: "الاستضافة" },
+  mlSectionIP: { fr: "Propriété intellectuelle", ar: "الملكية الفكرية" },
+  mlSectionLiability: { fr: "Limitation de responsabilité", ar: "تحديد المسؤولية" },
+  mlSectionLinks: { fr: "Liens hypertextes", ar: "روابط تشعبية" },
+  mlSectionLaw: { fr: "Droit applicable", ar: "القانون المطبق" },
+  // Politique de confidentialité sections
+  pcTitle: { fr: "Politique de confidentialité", ar: "سياسة الخصوصية" },
+  pcSectionController: { fr: "Responsable du traitement", ar: "المسؤول عن المعالجة" },
+  pcSectionData: { fr: "Données collectées", ar: "البيانات المجمعة" },
+  pcSectionPurpose: { fr: "Finalités", ar: "الأغراض" },
+  pcSectionLegalBasis: { fr: "Base légale", ar: "الأساس القانوني" },
+  pcSectionRetention: { fr: "Durée de conservation", ar: "مدة الحفظ" },
+  pcSectionRecipients: { fr: "Destinataires", ar: "المستلمون" },
+  pcSectionTransfer: { fr: "Transferts hors Algérie", ar: "النقل خارج الجزائر" },
+  pcSectionSecurity: { fr: "Sécurité", ar: "الأمن" },
+  pcSectionRights: { fr: "Vos droits", ar: "حقوقك" },
+  pcSectionCookies: { fr: "Cookies", ar: "ملفات تعريف الارتباط" },
+  pcSectionChanges: { fr: "Modification de la politique", ar: "تعديل السياسة" },
 } as const;
 
 export type TKey = keyof typeof T;

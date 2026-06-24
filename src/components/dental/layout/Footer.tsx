@@ -88,6 +88,23 @@ export function Footer() {
           <p>© {new Date().getFullYear()} {COMPANY.name}. {t("rights")}</p>
           <p>Oran, {COMPANY.country} — {COMPANY.tagline[lang]}</p>
         </div>
+
+        {/* Legal links (Task LEGAL-1) */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-slate-500">
+          <button
+            onClick={() => navigate("mentions-legales")}
+            className="hover:text-brand-400 hover:underline"
+          >
+            {t("legalNotices")}
+          </button>
+          <span aria-hidden className="text-slate-600">•</span>
+          <button
+            onClick={() => navigate("confidentialite")}
+            className="hover:text-brand-400 hover:underline"
+          >
+            {t("privacyPolicy")}
+          </button>
+        </div>
       </div>
     </footer>
   );
