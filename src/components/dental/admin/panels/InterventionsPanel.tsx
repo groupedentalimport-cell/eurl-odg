@@ -438,6 +438,14 @@ export function InterventionsPanel() {
     return arr;
   }, [weekStart]);
 
+  // ---- Commandes filtered by selected client (for the commande select) ----
+  // NOTE: must be declared BEFORE any conditional return — React hooks
+  // must always run in the same order on every render.
+  const commandesForClient = useMemo(() => {
+    if (!form.client_id) return commandes;
+    return commandes.filter((c) => !c.client_id || c.client_id === form.client_id);
+  }, [commandes, form.client_id]);
+
   // ---- Permission gate ----
   if (!canRead) {
     return (
@@ -678,12 +686,6 @@ export function InterventionsPanel() {
 
   // ---- Total interventions this week ----
   const totalThisWeek = filtered.length;
-
-  // ---- Commandes filtered by selected client (for the commande select) ----
-  const commandesForClient = useMemo(() => {
-    if (!form.client_id) return commandes;
-    return commandes.filter((c) => !c.client_id || c.client_id === form.client_id);
-  }, [commandes, form.client_id]);
 
   return (
     <div className="space-y-4">
