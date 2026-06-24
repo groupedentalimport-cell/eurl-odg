@@ -1,7 +1,9 @@
 -- ============================================
--- EURL ODG — Migration admin_users vers le schéma CRM
--- Adapte la table admin_users existante (ancien site) au nouveau schéma
--- attendu par le code CRM multi-rôles.
+-- EURL ODG — Migration admin_users vers le schéma CRM (v2 corrigée)
+-- Adapte la table admin_users existante au nouveau schéma CRM.
+--
+-- IMPORTANT: l'ordre des étapes compte — on met à jour les valeurs
+-- de role AVANT d'ajouter la nouvelle contrainte CHECK.
 --
 -- À exécuter dans Supabase Dashboard → SQL Editor → Run.
 -- Idempotent — sûr à relancer.
@@ -24,27 +26,55 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 -- ============================================
--- 2. Remplacer la contrainte CHECK sur role
+-- 2. Supprimer l'ancienne contrainte CHECK sur role
 -- (l'ancienne n'acceptait que 'superadmin' sans underscore)
 -- ============================================
 
 DO $$
 DECLARE
   con_name text;
+  con_rec record;
 BEGIN
-  -- Trouve et supprime l'ancienne contrainte CHECK sur la colonne role
-  SELECT conname INTO con_name
-  FROM pg_constraint
-  WHERE conrelid = 'admin_users'::regclass
-    AND contype = 'c'
-    AND pg_get_constraintdef(oid) ILIKE '%role%';
-  IF con_name IS NOT NULL THEN
-    EXECUTE format('ALTER TABLE admin_users DROP CONSTRAINT IF EXISTS %I', con_name);
-  END IF;
+  -- Trouve et supprime TOUTES les contraintes CHECK sur la colonne role
+  FOR con_rec IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'admin_users'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%role%'
+  LOOP
+    BEGIN
+      EXECUTE format('ALTER TABLE admin_users DROP CONSTRAINT IF EXISTS %I', con_rec.conname);
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END LOOP;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
--- Ajoute la nouvelle contrainte avec les 6 rôles CRM (avec underscores)
+-- ============================================
+-- 3. Mettre à jour les valeurs de role AVANT la contrainte
+-- (toute valeur non reconnue → 'editor' par défaut)
+-- ============================================
+
+UPDATE admin_users SET role = 'super_admin' WHERE role = 'superadmin';
+UPDATE admin_users SET role = 'super_admin' WHERE role = 'admin';
+UPDATE admin_users SET role = 'manager'   WHERE role = 'manager';
+UPDATE admin_users SET role = 'commercial' WHERE role = 'commercial';
+UPDATE admin_users SET role = 'technician' WHERE role = 'technician';
+UPDATE admin_users SET role = 'editor'    WHERE role = 'editeur';
+UPDATE admin_users SET role = 'editor'    WHERE role = 'editor';
+UPDATE admin_users SET role = 'accountant' WHERE role = 'accountant';
+
+-- Toute valeur restante qui n'est pas dans les 6 rôles → 'editor'
+UPDATE admin_users
+SET role = 'editor'
+WHERE role NOT IN ('super_admin','manager','commercial','technician','editor','accountant');
+
+-- ============================================
+-- 4. Ajouter la nouvelle contrainte CHECK
+-- (maintenant que toutes les valeurs sont valides)
+-- ============================================
+
 DO $$ BEGIN
   ALTER TABLE admin_users ADD CONSTRAINT admin_users_role_check
     CHECK (role IN ('super_admin','manager','commercial','technician','editor','accountant'));
@@ -52,15 +82,7 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- ============================================
--- 3. Mettre à jour les valeurs de role existantes
--- ============================================
-
-UPDATE admin_users SET role = 'super_admin' WHERE role = 'superadmin';
-UPDATE admin_users SET role = 'manager' WHERE role = 'admin';
-UPDATE admin_users SET role = 'editor' WHERE role = 'editeur';
-
--- ============================================
--- 4. Mettre à jour le hash du mot de passe du Super Admin
+-- 5. Mettre à jour le hash du mot de passe du Super Admin
 -- (l'ancien hash était en SHA-512, le nouveau utilise scrypt)
 -- Mot de passe: odg-admin-2026
 -- ============================================
@@ -70,7 +92,7 @@ SET password_hash = '35aac822eabc2911d596a6bc2f9926a2e1ed4ff0990fccb61a26b9fdf56
 WHERE email = 'admin@odg.dz';
 
 -- ============================================
--- 5. S'assurer que le compte Super Admin existe
+-- 6. S'assurer que le compte Super Admin existe
 -- ============================================
 DO $$ BEGIN
   INSERT INTO admin_users (email, password_hash, full_name, role, active)
