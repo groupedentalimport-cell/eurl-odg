@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: "OUADAH DENTAL GROUPE — Matériel dentaire | Oran, Algérie",
-    template: "%s | OUADAH DENTAL GROUPE",
+    template: "%s — OUADAH DENTAL GROUPE",
   },
   description:
     "Importateur de matériel dentaire à Oran : fauteuils Silver Fox, autoclaves ICANCLAVE, radiologie OWANDY. Devis, service après-vente et formation.",
@@ -161,7 +161,7 @@ function buildJsonLd() {
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: `${SITE_URL}/#/catalogue?q={search_term_string}`,
+        urlTemplate: `${SITE_URL}/catalogue?q={search_term_string}`,
       },
       "query-input": "required name=search_term_string",
     },

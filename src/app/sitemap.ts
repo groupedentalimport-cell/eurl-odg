@@ -6,20 +6,34 @@ import { COMPANY } from "@/lib/types";
 const SITE_URL = "https://ouadah-dental-groupe.vercel.app";
 
 /**
- * ODG uses a hash-based router (single "/" route, navigation via "#/catalogue",
- * "#/produit/:slug", ...). Google does NOT index hash fragments reliably, so the
- * base URL "/" is the only fully-indexable entry. We still emit hash URLs as
- * "hints" — modern Googlebot can sometimes execute JS and discover the SPA routes.
+ * Revalidate the sitemap at most once per hour so newly-published products
+ * and blog posts appear in /sitemap.xml without a full redeploy.
+ *
+ * (Without this, the route would be prerendered once at build time — which
+ *  would freeze the sitemap at the 8 static entries because Supabase env vars
+ *  are typically not available during the build.)
+ */
+export const revalidate = 3600;
+
+/**
+ * Native App Router sitemap for OUADAH DENTAL GROUPE.
+ *
+ * The site has migrated from a hash-based SPA router (/#/catalogue, ...) to
+ * native Next.js App Router routes (/catalogue, /produit/<slug>, ...). All
+ * entries below are therefore real, fully-indexable URLs — no hash fragments.
  *
  * The DB fetches (product + blog slugs) use the Supabase service-role client.
  * If Supabase is not configured (missing env vars) or the tables are absent,
- * we silently fall back to the base + section URLs only — the sitemap must
+ * we silently fall back to the static section URLs only — the sitemap must
  * NEVER 500 because of a DB hiccup.
+ *
+ * The /admin route is intentionally NOT listed here (it is gated by auth and
+ * marked noindex via its layout metadata).
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
-  // --- Static / hash-routed sections -----------------------------------
+  // --- Static sections (native routes) ---------------------------------
   const entries: MetadataRoute.Sitemap = [
     {
       url: `${SITE_URL}/`,
@@ -28,32 +42,50 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1.0,
     },
     {
-      url: `${SITE_URL}/#/catalogue`,
+      url: `${SITE_URL}/catalogue`,
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.9,
     },
     {
-      url: `${SITE_URL}/#/blog`,
+      url: `${SITE_URL}/blog`,
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.8,
     },
     {
-      url: `${SITE_URL}/#/apropos`,
+      url: `${SITE_URL}/apropos`,
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
-      url: `${SITE_URL}/#/contact`,
+      url: `${SITE_URL}/contact`,
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
+    {
+      url: `${SITE_URL}/devis`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${SITE_URL}/mentions-legales`,
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${SITE_URL}/confidentialite`,
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
   ];
 
-  // --- Dynamic: product slugs ------------------------------------------
+  // --- Dynamic: product slugs (/produit/<slug>) ------------------------
   try {
     const client = getServerClient();
     const { data: products, error: prodErr } = await client
@@ -65,7 +97,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       for (const p of products) {
         if (!p?.slug) continue;
         entries.push({
-          url: `${SITE_URL}/#/produit/${p.slug}`,
+          url: `${SITE_URL}/produit/${p.slug}`,
           lastModified: p.updated_at ? new Date(p.updated_at) : now,
           changeFrequency: "monthly",
           priority: 0.7,
@@ -76,7 +108,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Supabase not configured or table missing — skip products silently.
   }
 
-  // --- Dynamic: blog post slugs ----------------------------------------
+  // --- Dynamic: blog post slugs (/blog/<slug>) -------------------------
   try {
     const client = getServerClient();
     const { data: posts, error: postErr } = await client
@@ -90,7 +122,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         if (!b?.slug) continue;
         const ts = b.updated_at || b.created_at;
         entries.push({
-          url: `${SITE_URL}/#/blog/${b.slug}`,
+          url: `${SITE_URL}/blog/${b.slug}`,
           lastModified: ts ? new Date(ts) : now,
           changeFrequency: "monthly",
           priority: 0.6,
@@ -102,7 +134,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // Soft log so a maintainer can debug missing entries without breaking prod.
-  if (entries.length <= 5) {
+  if (entries.length <= 8) {
     console.warn(
       `[sitemap] Only ${entries.length} entries — Supabase slugs unavailable (${COMPANY.name}).`
     );
