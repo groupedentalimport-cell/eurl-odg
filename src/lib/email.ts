@@ -1,35 +1,42 @@
 // ============================================================
-// OUADAH DENTAL GROUPE — Email service (Resend REST API)
+// OUADAH DENTAL GROUPE — Email service (Gmail SMTP via nodemailer)
 // ============================================================
-// Uses Node's built-in fetch (Node 18+) to call the Resend REST
-// API directly — no SDK, no extra dependency, no package.json
-// change required.
+// Sends transactional emails (quote confirmations, contact notifications,
+// newsletter welcomes) through your Gmail account using SMTP.
 //
-// CONFIG (.env):
-//   RESEND_API_KEY   — Your Resend API key (https://resend.com/api-keys)
-//   EMAIL_FROM       — Sender address. Until you verify your own domain
-//                      in Resend, you MUST use "onboarding@resend.dev".
-//                      Example: "OUADAH DENTAL GROUPE <onboarding@resend.dev>"
-//   EMAIL_TO         — Destination for admin notifications (business inbox).
-//                      Defaults to "contact@odg.dz".
+// CONFIG (.env / Vercel env vars):
+//   SMTP_HOST   — Gmail SMTP host: "smtp.gmail.com"
+//   SMTP_PORT   — Gmail SMTP port: 587 (STARTTLS) or 465 (SSL)
+//   SMTP_USER   — Your Gmail address, e.g. "groupedentalimport@gmail.com"
+//   SMTP_PASS   — Gmail App Password (16 chars, generated at
+//                 https://myaccount.google.com/apppasswords — NOT your
+//                 regular Gmail password). 2-Step Verification must be ON.
+//   EMAIL_FROM  — Sender display, e.g. "OUADAH DENTAL GROUPE <groupedentalimport@gmail.com>"
+//   EMAIL_TO    — Destination for admin notifications (business inbox).
+//                 Defaults to SMTP_USER if not set.
 //
-// DEV CAVEAT:
-//   The Resend test domain (onboarding@resend.dev) can ONLY deliver to
-//   the email address associated with your Resend account. Admin
-//   notifications sent to other addresses will be rejected by Resend
-//   with a 403 / "domain not verified" error. To send to any address,
-//   verify your own domain in the Resend dashboard and update
-//   EMAIL_FROM accordingly. Either way, the API request still returns
-//   `{ ok: true }` to the client — email failures are non-fatal.
+// LIMITS:
+//   Gmail free: ~500 emails/day. Google Workspace: ~2000/day.
+//   Sufficient for ODG's volume (devis, contacts, newsletter).
+//
+// SECURITY:
+//   The App Password is stored ONLY in environment variables (never in
+//   code/git). It bypasses 2-Step Verification for SMTP only — it cannot
+//   be used to log into Gmail's web interface.
 // ============================================================
 
 import type { QuoteItem } from "@/lib/types";
+import nodemailer from "nodemailer";
 
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
+const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587", 10);
+const SMTP_USER = process.env.SMTP_USER || "";
+const SMTP_PASS = process.env.SMTP_PASS || "";
 
 const DEFAULT_FROM =
-  process.env.EMAIL_FROM || "OUADAH DENTAL GROUPE <onboarding@resend.dev>";
-const DEFAULT_ADMIN_TO = process.env.EMAIL_TO || "contact@odg.dz";
+  process.env.EMAIL_FROM ||
+  (SMTP_USER ? `OUADAH DENTAL GROUPE <${SMTP_USER}>` : "OUADAH DENTAL GROUPE");
+const DEFAULT_ADMIN_TO = process.env.EMAIL_TO || SMTP_USER || "contact@odg.dz";
 
 // Brand contact info reused across templates.
 const BRAND = {
@@ -50,9 +57,9 @@ export interface SendEmailResult {
 }
 
 /**
- * Low-level wrapper around the Resend REST API.
- * Returns `{ skipped: true }` if no API key is configured.
- * Throws on network / API errors so callers can decide what to do.
+ * Low-level wrapper around Gmail SMTP (via nodemailer).
+ * Returns `{ skipped: true }` if SMTP_USER/SMTP_PASS are not configured.
+ * Throws on SMTP errors so callers can decide what to do.
  */
 export async function sendEmail({
   to,
@@ -65,34 +72,32 @@ export async function sendEmail({
   html: string;
   replyTo?: string;
 }): Promise<SendEmailResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.log("[email] RESEND_API_KEY not set — skipping email");
+  if (!SMTP_USER || !SMTP_PASS) {
+    console.log("[email] SMTP_USER/SMTP_PASS not set — skipping email");
     return { skipped: true };
   }
 
-  const res = await fetch(RESEND_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+  // Create a nodemailer transporter using Gmail SMTP.
+  // The transporter is cheap to create; nodemailer pools connections internally.
+  const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465, // true for 465 (SSL), false for 587 (STARTTLS)
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
     },
-    body: JSON.stringify({
-      from: DEFAULT_FROM,
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      html,
-      reply_to: replyTo,
-    }),
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    console.error("[email] Resend error:", err);
-    throw new Error(`Email failed: ${err}`);
-  }
+  const info = await transporter.sendMail({
+    from: DEFAULT_FROM,
+    to: Array.isArray(to) ? to.join(", ") : to,
+    subject,
+    html,
+    replyTo: replyTo || undefined,
+  });
 
-  return { ok: true, data: await res.json() };
+  return { ok: true, data: { messageId: info.messageId } };
 }
 
 // ------------------------------------------------------------
