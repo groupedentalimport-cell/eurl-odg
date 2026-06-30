@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase";
 import { requireRole, type AdminRole } from "@/lib/admin-auth";
+import {
+  sendDevisValideEmail,
+  sendDevisAccepteEmail,
+} from "@/lib/email";
 
 // ============================================================
 // CRM — Devis (quotes) CRUD
@@ -529,6 +533,63 @@ export async function PUT(request: NextRequest) {
       console.error("[admin/devis] update error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // EMAIL-V1: workflow emails on statut change (non-blocking).
+    // Fires when statut transitions to 'envoye' or 'accepte'. The
+    // email is sent AFTER the DB commit so a SMTP failure cannot
+    // roll back the statut change. The whole block is wrapped in
+    // try/catch — the API response is always 200 even if SMTP is
+    // down or not configured.
+    if (payload.statut !== undefined) {
+      const newStatut = payload.statut as string;
+      const oldStatut = existing.statut as string;
+      if (
+        newStatut !== oldStatut &&
+        (newStatut === "envoye" || newStatut === "accepte")
+      ) {
+        try {
+          // Resolve client email + name (snapshot first, then clients table).
+          const clientId = (data.client_id || existing.client_id) as string | null;
+          let clientEmail: string | null = null;
+          let clientName: string | null = null;
+          const snap = (data.client_snapshot || existing.client_snapshot) as any;
+          if (snap && typeof snap === "object") {
+            clientEmail = snap.email || null;
+            clientName = snap.nom || null;
+          }
+          if ((!clientEmail || !clientName) && clientId) {
+            const { data: cli } = await client
+              .from("clients")
+              .select("nom, email")
+              .eq("id", clientId)
+              .maybeSingle();
+            if (cli) {
+              clientEmail = clientEmail || cli.email || null;
+              clientName = clientName || cli.nom || null;
+            }
+          }
+          if (clientEmail && clientName) {
+            const devisDataForEmail = {
+              numero: data.numero || existing.numero,
+              montant_total: data.montant_total ?? existing.montant_total,
+              lignes: data.lignes || existing.lignes,
+              date_emission: data.date_emission || existing.date_emission,
+              date_validite: data.date_validite || existing.date_validite,
+            };
+            if (newStatut === "envoye") {
+              await sendDevisValideEmail(clientEmail, clientName, devisDataForEmail);
+            } else if (newStatut === "accepte") {
+              await sendDevisAccepteEmail(clientEmail, clientName, devisDataForEmail);
+            }
+          } else {
+            console.warn("[admin/devis] email skipped: client email or name missing");
+          }
+        } catch (emailErr: any) {
+          console.error("[admin/devis] email error:", emailErr?.message || emailErr);
+        }
+      }
+    }
+
     return NextResponse.json({ devis: data });
   } catch (e: any) {
     if (isMissingTableError(e)) {

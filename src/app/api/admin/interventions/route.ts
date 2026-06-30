@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/admin-auth";
+import {
+  sendInterventionPlanifieeEmail,
+  sendInterventionTermineeEmail,
+} from "@/lib/email";
 
 // ============================================================
 // CRUD — Interventions (CRM-C)
@@ -60,6 +64,96 @@ async function findTechnicienIdForUser(
     return null;
   }
   return data?.id || null;
+}
+
+// ============================================================
+// EMAIL-V1 helpers — fetch client info + technicien name
+// (server-side, bypasses RLS) and send workflow emails. Each helper
+// is fully non-blocking: SMTP failures are caught and logged so the
+// API response always succeeds even if Gmail is down or SMTP_PASS
+// is unset.
+// ============================================================
+async function fetchClientForEmail(
+  client: NonNullable<ReturnType<typeof getServerClient>>,
+  clientId: string | null | undefined
+): Promise<{ email: string; nom: string } | null> {
+  if (!clientId) return null;
+  const { data, error } = await client
+    .from("clients")
+    .select("nom, email")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (error || !data?.email) return null;
+  return { email: data.email, nom: data.nom || "Client" };
+}
+
+async function fetchTechnicienNom(
+  client: NonNullable<ReturnType<typeof getServerClient>>,
+  technicienId: string | null | undefined
+): Promise<string | null> {
+  if (!technicienId) return null;
+  const { data, error } = await client
+    .from("techniciens")
+    .select("nom")
+    .eq("id", technicienId)
+    .maybeSingle();
+  if (error || !data?.nom) return null;
+  return data.nom;
+}
+
+// EMAIL-V1: notify the client that an intervention was just planned.
+// Looks up the client + technicien names, then sends the email.
+async function emailInterventionPlanifiee(
+  client: NonNullable<ReturnType<typeof getServerClient>>,
+  itv: any
+): Promise<void> {
+  try {
+    if (!itv?.client_id) {
+      console.warn("[admin/interventions] email skipped: no client_id");
+      return;
+    }
+    const cli = await fetchClientForEmail(client, itv.client_id);
+    if (!cli) {
+      console.warn("[admin/interventions] email skipped: client email missing");
+      return;
+    }
+    const technicienNom = await fetchTechnicienNom(client, itv.technicien_id);
+    await sendInterventionPlanifieeEmail(cli.email, cli.nom, {
+      type: itv.type,
+      date_prevue: itv.date_prevue,
+      technicien_nom: technicienNom,
+      adresse_intervention: itv.adresse_intervention,
+      duree_estimee_min: itv.duree_estimee_min,
+    });
+  } catch (e: any) {
+    console.error("[admin/interventions] email error:", e?.message || e);
+  }
+}
+
+// EMAIL-V1: notify the client that an intervention was completed,
+// including the rapport written by the technicien.
+async function emailInterventionTerminee(
+  client: NonNullable<ReturnType<typeof getServerClient>>,
+  itv: any
+): Promise<void> {
+  try {
+    if (!itv?.client_id) {
+      console.warn("[admin/interventions] email skipped: no client_id");
+      return;
+    }
+    const cli = await fetchClientForEmail(client, itv.client_id);
+    if (!cli) {
+      console.warn("[admin/interventions] email skipped: client email missing");
+      return;
+    }
+    await sendInterventionTermineeEmail(cli.email, cli.nom, {
+      type: itv.type,
+      rapport: itv.rapport,
+      date_realisee: itv.date_realisee,
+    });
+  } catch (e: any) {
+    console.error("[admin/interventions] email error:", e?.message || e);
+  }
 }
 
 // ----- GET: list with optional filters -----
@@ -245,6 +339,10 @@ export async function POST(request: NextRequest) {
       console.error("[admin/interventions] insert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // EMAIL-V1: notify the client that an intervention was just planned.
+    await emailInterventionPlanifiee(client, data);
+
     return NextResponse.json({ intervention: data });
   } catch (e: any) {
     if (isMissingTableError(e)) {
@@ -382,6 +480,13 @@ export async function PUT(request: NextRequest) {
       console.error("[admin/interventions] update error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // EMAIL-V1: notify the client when an intervention is marked 'termine',
+    // including the rapport field.
+    if (becomingTermine) {
+      await emailInterventionTerminee(client, data);
+    }
+
     return NextResponse.json({ intervention: data });
   } catch (e: any) {
     if (isMissingTableError(e)) {

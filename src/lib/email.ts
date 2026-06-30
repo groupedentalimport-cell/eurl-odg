@@ -425,3 +425,336 @@ ${contactFooter()}`);
     throw e;
   }
 }
+
+// ============================================================
+// CRM workflow templates (Tier 1 — status-triggered automatic emails)
+// Task EMAIL-V1
+// ============================================================
+// These 6 functions are invoked from the admin API routes after a
+// successful statut change. The CALLER wraps each call in try/catch
+// so that SMTP failures never break the API response. Each function
+// just builds the HTML and delegates to sendEmail().
+// ============================================================
+
+const TYPE_INTERVENTION_LABELS: Record<string, string> = {
+  livraison: "Livraison",
+  installation: "Installation",
+  formation: "Formation",
+  maintenance_preventive: "Maintenance préventive",
+  maintenance_curative: "Maintenance curative",
+};
+
+// Algerian Dinar currency formatter. "fr-DZ" may fall back to "fr" in
+// some Node runtimes; wrap in try/catch just in case.
+const DZD = (() => {
+  try {
+    return new Intl.NumberFormat("fr-DZ", {
+      style: "currency",
+      currency: "DZD",
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    return new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "DZD",
+      maximumFractionDigits: 2,
+    });
+  }
+})();
+
+function formatDzd(n: number | string | null | undefined): string {
+  const num = typeof n === "string" ? parseFloat(n) : Number(n);
+  if (!Number.isFinite(num)) return "—";
+  try {
+    return DZD.format(num);
+  } catch {
+    return `${num.toFixed(2)} DZD`;
+  }
+}
+
+function formatDateTimeFr(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  try {
+    return d.toLocaleString("fr-DZ", { dateStyle: "long", timeStyle: "short" });
+  } catch {
+    return d.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+  }
+}
+
+function formatDateFr(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  try {
+    return d.toLocaleDateString("fr-DZ", { dateStyle: "long" });
+  } catch {
+    return d.toLocaleDateString("fr-FR", { dateStyle: "long" });
+  }
+}
+
+// Format the devis "lignes" array (each row: { designation, qte,
+// prix_unitaire, remise_pct }) into a simple HTML list for emails.
+function formatDevisLignes(lignes: any[] | null | undefined): string {
+  if (!Array.isArray(lignes) || lignes.length === 0) return "—";
+  return lignes
+    .map((l: any) => {
+      const designation = escapeHtml(l?.designation || "—");
+      const qte = Number(l?.qte) > 0 ? ` ×${Number(l.qte)}` : "";
+      const pu = Number.isFinite(Number(l?.prix_unitaire))
+        ? ` — ${formatDzd(l.prix_unitaire)}`
+        : "";
+      return `${designation}${qte}${pu}`;
+    })
+    .join("<br>");
+}
+
+// ----- Email #1: Devis statut → "envoye" (devis ready, sent to client) -----
+export async function sendDevisValideEmail(
+  clientEmail: string,
+  clientName: string,
+  devisData: {
+    numero?: string;
+    montant_total?: number | string;
+    lignes?: any[];
+    date_emission?: string | null;
+    date_validite?: string | null;
+  }
+): Promise<SendEmailResult> {
+  const numero = devisData.numero || "—";
+  const lignesHtml = formatDevisLignes(devisData.lignes);
+
+  const inner =
+    headerBlock(BRAND.taglineFr) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Votre devis est prêt 📄</h2>
+              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
+              <p style="margin:0 0 8px;">Votre devis <strong>ODG #${escapeHtml(numero)}</strong> est prêt. Vous en trouverez le récapitulatif ci-dessous :</p>
+` +
+        infoBox([
+          ["N° de devis", escapeHtml(numero)],
+          ["Date d'émission", formatDateFr(devisData.date_emission)],
+          ["Valide jusqu'au", formatDateFr(devisData.date_validite)],
+          ["Montant total", formatDzd(devisData.montant_total)],
+          ["Lignes", lignesHtml],
+        ]) +
+        `              <p style="margin:0 0 8px;">Pour toute question ou pour discuter des conditions, n'hésitez pas à nous contacter — nous vous répondrons sous 24h.</p>
+${contactFooter()}`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: clientEmail,
+    subject: `Votre devis ODG #${numero} est prêt`,
+    html,
+    replyTo: BRAND.email,
+  });
+}
+
+// ----- Email #2: Devis statut → "accepte" -----
+export async function sendDevisAccepteEmail(
+  clientEmail: string,
+  clientName: string,
+  devisData: {
+    numero?: string;
+    montant_total?: number | string;
+  }
+): Promise<SendEmailResult> {
+  const numero = devisData.numero || "—";
+
+  const inner =
+    headerBlock(BRAND.taglineFr) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Devis accepté — merci ! 🤝</h2>
+              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
+              <p style="margin:0 0 8px;">Nous vous remercions d'avoir accepté le devis <strong>ODG #${escapeHtml(numero)}</strong>. C'est avec plaisir que nous allons finaliser votre commande.</p>
+` +
+        infoBox([
+          ["N° de devis", escapeHtml(numero)],
+          ["Montant total", formatDzd(devisData.montant_total)],
+        ]) +
+        `              <p style="margin:0 0 8px;"><strong>Prochaines étapes :</strong></p>
+              <ul style="margin:0 0 16px;padding-left:20px;color:#1e293b;font-size:14px;line-height:1.8;">
+                <li>Notre équipe commerciale vous contactera pour finaliser la commande.</li>
+                <li>Nous planifierons ensuite la livraison et/ou l'installation selon vos disponibilités.</li>
+                <li>Une garantie de 24 mois sera activée dès la livraison.</li>
+              </ul>
+              <p style="margin:0 0 8px;">Merci de votre confiance.</p>
+${contactFooter()}`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: clientEmail,
+    subject: "Devis accepté — merci de votre confiance",
+    html,
+    replyTo: BRAND.email,
+  });
+}
+
+// ----- Email #3: Commande créée (POST) -----
+export async function sendCommandeCreatedEmail(
+  clientEmail: string,
+  clientName: string,
+  commandeData: {
+    numero?: string;
+    date_commande?: string | null;
+    date_livraison_prevue?: string | null;
+  }
+): Promise<SendEmailResult> {
+  const numero = commandeData.numero || "—";
+
+  const inner =
+    headerBlock(BRAND.taglineFr) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Confirmation de commande 📦</h2>
+              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
+              <p style="margin:0 0 8px;">Nous avons bien enregistré votre commande <strong>ODG #${escapeHtml(numero)}</strong>. Voici les informations principales :</p>
+` +
+        infoBox([
+          ["N° de commande", escapeHtml(numero)],
+          ["Date de commande", formatDateFr(commandeData.date_commande)],
+          ["Livraison estimée", formatDateFr(commandeData.date_livraison_prevue)],
+        ]) +
+        `              <p style="margin:0 0 8px;">Notre équipe vous tiendra informé(e) à chaque étape de la préparation et de la livraison de votre commande.</p>
+${contactFooter()}`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: clientEmail,
+    subject: `Confirmation de commande #${numero}`,
+    html,
+    replyTo: BRAND.email,
+  });
+}
+
+// ----- Email #4: Commande statut → "livree" -----
+export async function sendCommandeLivreeEmail(
+  clientEmail: string,
+  clientName: string,
+  commandeData: {
+    numero?: string;
+    date_livraison_reelle?: string | null;
+  }
+): Promise<SendEmailResult> {
+  const numero = commandeData.numero || "—";
+  // Garantie window: 24 months starting today.
+  const today = new Date();
+  const fin = new Date(today);
+  fin.setMonth(fin.getMonth() + 24);
+  const livraisonIso =
+    commandeData.date_livraison_reelle || today.toISOString();
+
+  const inner =
+    headerBlock(BRAND.taglineFr) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Commande livrée ✅</h2>
+              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
+              <p style="margin:0 0 8px;">Votre commande <strong>ODG #${escapeHtml(numero)}</strong> a été livrée. Nous espérons que le matériel répond à vos attentes.</p>
+` +
+        infoBox([
+          ["N° de commande", escapeHtml(numero)],
+          ["Date de livraison", formatDateFr(livraisonIso)],
+        ]) +
+        `              <p style="margin:0 0 8px;"><strong>Garantie :</strong> une garantie de <strong>24 mois</strong> est désormais active sur votre matériel. Elle a débuté le <strong>${formatDateFr(today.toISOString())}</strong> et expirera le <strong>${formatDateFr(fin.toISOString())}</strong>.</p>
+              <p style="margin:0 0 8px;">Pour tout problème technique, défaut ou question sur le matériel livré, n'hésitez pas à nous contacter — nous organiserons une intervention si nécessaire.</p>
+${contactFooter()}`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: clientEmail,
+    subject: `Votre commande #${numero} a été livrée`,
+    html,
+    replyTo: BRAND.email,
+  });
+}
+
+// ----- Email #5: Intervention créée / planifiée -----
+export async function sendInterventionPlanifieeEmail(
+  clientEmail: string,
+  clientName: string,
+  interventionData: {
+    type?: string;
+    date_prevue?: string | null;
+    technicien_nom?: string | null;
+    adresse_intervention?: string | null;
+    duree_estimee_min?: number | string | null;
+  }
+): Promise<SendEmailResult> {
+  const typeLabel =
+    TYPE_INTERVENTION_LABELS[interventionData.type || ""] ||
+    interventionData.type ||
+    "Rendez-vous";
+  const dateStr = formatDateTimeFr(interventionData.date_prevue);
+  const dureeNum = Number(interventionData.duree_estimee_min);
+  const duree = Number.isFinite(dureeNum) && dureeNum > 0
+    ? `${dureeNum} min`
+    : "—";
+
+  const inner =
+    headerBlock(BRAND.taglineFr) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Rendez-vous planifié 📅</h2>
+              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
+              <p style="margin:0 0 8px;">Un rendez-vous a été planifié chez vous par OUADAH DENTAL GROUPE. En voici les détails :</p>
+` +
+        infoBox([
+          ["Type d'intervention", escapeHtml(typeLabel)],
+          ["Date et heure", escapeHtml(dateStr)],
+          ["Technicien", escapeHtml(interventionData.technicien_nom || "—")],
+          ["Adresse", escapeHtml(interventionData.adresse_intervention || "—")],
+          ["Durée estimée", escapeHtml(duree)],
+        ]) +
+        `              <p style="margin:0 0 8px;"><strong>Préparez votre espace :</strong> merci de dégager la zone d'intervention et de vous assurer que l'accès au matériel concerné est possible. Notre technicien arrivera à l'heure prévue.</p>
+${contactFooter()}`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: clientEmail,
+    subject: `RDV planifié : ${typeLabel} le ${dateStr}`,
+    html,
+    replyTo: BRAND.email,
+  });
+}
+
+// ----- Email #6: Intervention statut → "termine" -----
+export async function sendInterventionTermineeEmail(
+  clientEmail: string,
+  clientName: string,
+  interventionData: {
+    type?: string;
+    rapport?: string | null;
+    date_realisee?: string | null;
+  }
+): Promise<SendEmailResult> {
+  const typeLabel =
+    TYPE_INTERVENTION_LABELS[interventionData.type || ""] ||
+    interventionData.type ||
+    "Intervention";
+
+  const inner =
+    headerBlock(BRAND.taglineFr) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Intervention terminée ✅</h2>
+              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
+              <p style="margin:0 0 8px;">L'intervention de type <strong>${escapeHtml(typeLabel)}</strong> programmée chez vous est à présent terminée${interventionData.date_realisee ? ` (réalisée le ${formatDateFr(interventionData.date_realisee)})` : ""}.</p>
+              <p style="margin:16px 0 6px;font-weight:bold;color:#0f172a;">Rapport d'intervention :</p>
+              <div style="background:#f8fafc;border-left:3px solid ${BRAND.color};padding:12px 14px;font-size:14px;color:#1e293b;border-radius:4px;white-space:pre-wrap;">
+                ${escapeHtml(interventionData.rapport || "Aucun rapport renseigné.")}
+              </div>
+              <p style="margin:16px 0 8px;">Nous serions ravis d'avoir votre retour sur cette intervention. Pour toute remarque ou demande complémentaire, n'hésitez pas à nous contacter.</p>
+${contactFooter()}`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: clientEmail,
+    subject: "Intervention terminée — rapport",
+    html,
+    replyTo: BRAND.email,
+  });
+}

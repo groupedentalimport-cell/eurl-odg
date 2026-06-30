@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/admin-auth";
+import {
+  sendCommandeCreatedEmail,
+  sendCommandeLivreeEmail,
+} from "@/lib/email";
 
 // ============================================================
 // CRUD — Commandes (CRM-C)
@@ -57,6 +61,73 @@ async function generateNumero(client: ReturnType<typeof getServerClient>): Promi
     }
   }
   return `CMD-${year}-${String(seq).padStart(3, "0")}`;
+}
+
+// ============================================================
+// EMAIL-V1 helpers — fetch client info (server-side, bypasses RLS)
+// and send workflow emails. Each helper is fully non-blocking:
+// SMTP failures are caught and logged so the API response always
+// succeeds even if Gmail is down or SMTP_PASS is unset.
+// ============================================================
+async function fetchClientForEmail(
+  client: NonNullable<ReturnType<typeof getServerClient>>,
+  clientId: string | null | undefined
+): Promise<{ email: string; nom: string } | null> {
+  if (!clientId) return null;
+  const { data, error } = await client
+    .from("clients")
+    .select("nom, email")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (error || !data?.email) return null;
+  return { email: data.email, nom: data.nom || "Client" };
+}
+
+async function emailCommandeCreated(
+  client: NonNullable<ReturnType<typeof getServerClient>>,
+  cmd: any
+): Promise<void> {
+  try {
+    if (!cmd?.client_id) {
+      console.warn("[admin/commandes] email skipped: no client_id on commande");
+      return;
+    }
+    const cli = await fetchClientForEmail(client, cmd.client_id);
+    if (!cli) {
+      console.warn("[admin/commandes] email skipped: client email missing");
+      return;
+    }
+    await sendCommandeCreatedEmail(cli.email, cli.nom, {
+      numero: cmd.numero,
+      date_commande: cmd.date_commande,
+      date_livraison_prevue: cmd.date_livraison_prevue,
+    });
+  } catch (e: any) {
+    console.error("[admin/commandes] email error:", e?.message || e);
+  }
+}
+
+async function emailCommandeLivree(
+  client: NonNullable<ReturnType<typeof getServerClient>>,
+  cmd: any
+): Promise<void> {
+  try {
+    if (!cmd?.client_id) {
+      console.warn("[admin/commandes] email skipped: no client_id on commande");
+      return;
+    }
+    const cli = await fetchClientForEmail(client, cmd.client_id);
+    if (!cli) {
+      console.warn("[admin/commandes] email skipped: client email missing");
+      return;
+    }
+    await sendCommandeLivreeEmail(cli.email, cli.nom, {
+      numero: cmd.numero,
+      date_livraison_reelle: cmd.date_livraison_reelle,
+    });
+  } catch (e: any) {
+    console.error("[admin/commandes] email error:", e?.message || e);
+  }
 }
 
 // ----- GET: list -----
@@ -226,6 +297,8 @@ export async function POST(request: NextRequest) {
           console.error("[admin/commandes] insert retry error:", error2);
           return NextResponse.json({ error: error2.message }, { status: 500 });
         }
+        // EMAIL-V1: notify the client that their commande was created.
+        await emailCommandeCreated(client, data2);
         return NextResponse.json({ commande: data2 });
       }
       if (isMissingTableError(error)) {
@@ -241,6 +314,9 @@ export async function POST(request: NextRequest) {
       console.error("[admin/commandes] insert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // EMAIL-V1: notify the client that their commande was created.
+    await emailCommandeCreated(client, data);
 
     return NextResponse.json({ commande: data });
   } catch (e: any) {
@@ -383,6 +459,9 @@ export async function PUT(request: NextRequest) {
           ge?.message || ge
         );
       }
+      // EMAIL-V1: notify the client that their commande was delivered
+      // (and that the 24-month garantie is now active).
+      await emailCommandeLivree(client, data);
     }
 
     return NextResponse.json({ commande: data });
