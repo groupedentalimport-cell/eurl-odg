@@ -88,6 +88,13 @@ export async function POST(req: NextRequest) {
     // Only sent on a NEW subscription. Duplicate subscriptions (already
     // subscribed) short-circuit above and never reach this point.
     // Email failures must NEVER break this response — we log and continue.
+    //
+    // EMAIL-V2: the welcome template now embeds an unsubscribe link
+    // at the bottom (built from the `email` param via base64url token
+    // encoding). The link points to /newsletter-unsubscribe?token=...
+    // which is the page that calls /api/newsletter/unsubscribe to
+    // remove the subscriber. No extra param needed here — the email
+    // is lowercased + base64url-encoded inside sendNewsletterWelcome().
     try {
       await sendNewsletterWelcome(email);
     } catch (e) {

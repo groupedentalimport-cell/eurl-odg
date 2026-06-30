@@ -5,6 +5,7 @@ import {
   Lock, LogOut, Loader2,
   LayoutDashboard, Mail, Package, FileText, Home, Info, Phone, Settings,
   Users, FileSpreadsheet, ShoppingCart, Wrench, Calendar, ShieldCheck, UserCog,
+  Newspaper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ import { MaintenancesPanel } from "./panels/MaintenancesPanel";
 import { GarantiesPanel } from "./panels/GarantiesPanel";
 import { AdminUsersPanel } from "./panels/AdminUsersPanel";
 import { QuotesPanel } from "./panels/QuotesPanel";
+import { NewsletterPanel } from "./panels/NewsletterPanel";
 
 interface NavItem {
   id: string;
@@ -63,6 +65,12 @@ const NAV: NavSection[] = [
       { id: "home", label: "Accueil", icon: Home, perm: "content.home", panel: HomeSettingsPanel },
       { id: "about", label: "À propos", icon: Info, perm: "content.about", panel: AboutSettingsPanel },
       { id: "contact", label: "Contact", icon: Phone, perm: "content.contact", panel: ContactSettingsPanel },
+    ],
+  },
+  {
+    title: "Communication",
+    items: [
+      { id: "newsletter", label: "Newsletter", icon: Newspaper, perm: "content.newsletter", panel: NewsletterPanel },
     ],
   },
   {
@@ -192,10 +200,22 @@ export function AdminPage() {
   }
 
   // ---- Filter nav by role ----
+  // The Newsletter item uses an INLINE permission check (it isn't in
+  // the can() matrix in useAdminSession.ts since we can't modify that
+  // file). Visible to: super_admin + manager + editor. This matches
+  // the role gate enforced server-side in
+  // /api/admin/newsletter/send (requireRole manager+editor).
   const role = user?.role;
+  const isVisible = (item: NavItem): boolean => {
+    if (item.perm === "content.newsletter") {
+      return role === "super_admin" || role === "manager" || role === "editor";
+    }
+    return can(role, item.perm);
+  };
+
   const visibleSections = NAV.map((section) => ({
     ...section,
-    items: section.items.filter((item) => can(role, item.perm)),
+    items: section.items.filter(isVisible),
   })).filter((section) => section.items.length > 0);
 
   // Ensure activeId is visible

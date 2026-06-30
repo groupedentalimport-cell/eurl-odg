@@ -27,6 +27,7 @@
 
 import type { QuoteItem } from "@/lib/types";
 import nodemailer from "nodemailer";
+import { logEmail } from "./email-log";
 
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587", 10);
@@ -38,6 +39,13 @@ const DEFAULT_FROM =
   (SMTP_USER ? `OUADAH DENTAL GROUPE <${SMTP_USER}>` : "OUADAH DENTAL GROUPE");
 const DEFAULT_ADMIN_TO = process.env.EMAIL_TO || SMTP_USER || "contact@odg.dz";
 
+// Exposed for the cron route so it knows where to send the admin alert
+// (#10 — maintenance en retard). Falls back to SMTP_USER then to a
+// generic contact address.
+export function getAdminInbox(): string {
+  return DEFAULT_ADMIN_TO;
+}
+
 // Brand contact info reused across templates.
 const BRAND = {
   name: "OUADAH DENTAL GROUPE",
@@ -48,7 +56,94 @@ const BRAND = {
   color: "#0f766e", // teal-700
   colorLight: "#f0fdfa", // teal-50
   colorBorder: "#ccfbf1", // teal-100
+  warn: "#b45309", // amber-700 — used for admin alert emails
+  warnLight: "#fffbeb", // amber-50
+  warnBorder: "#fde68a", // amber-200
 };
+
+// ============================================================
+// Multilingual support (Tier 3 — #12)
+// ============================================================
+// All template functions accept an optional `lang` parameter
+// (default "fr"). When lang === "ar", the subject line, body text,
+// info-box labels, and HTML wrapper direction (dir="rtl") are
+// switched to Arabic. The BRAND visual identity (logo, colors) stays
+// the same — only the text changes.
+export type EmailLang = "fr" | "ar";
+
+// Arabic label maps (used by the lang-aware template functions).
+const TYPE_CLIENT_LABELS_AR: Record<string, string> = {
+  dentiste: "طبيب أسنان",
+  clinique: "عيادة أسنان",
+  hopital: "مستشفى",
+  revendeur: "موزع",
+  autre: "آخر",
+};
+
+const TYPE_INTERVENTION_LABELS_AR: Record<string, string> = {
+  livraison: "تسليم",
+  installation: "تركيب",
+  formation: "تكوين",
+  maintenance_preventive: "صيانة وقائية",
+  maintenance_curative: "صيانة علاجية",
+};
+
+// Public site origin — used to build absolute links (e.g. newsletter
+// unsubscribe). Mirrors the constant in src/app/sitemap.ts.
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://ouadah-dental-groupe.vercel.app";
+
+// Encode an email into a URL-safe base64url token (RFC 4648 §5).
+// Used for the newsletter unsubscribe link. This is NOT secure
+// encryption — it's just encoding — but it's sufficient for an
+// unsubscribe link (worst case: someone unsubscribes someone else,
+// which is low-risk and standard for one-click unsubscribe per RFC 8058).
+export function encodeUnsubscribeToken(email: string): string {
+  return Buffer.from(email.toLowerCase(), "utf8").toString("base64url");
+}
+
+// Decode a base64url token back into an email. Returns "" on failure
+// (the caller is expected to validate the result with EMAIL_RE).
+export function decodeUnsubscribeToken(token: string): string {
+  try {
+    return Buffer.from(token, "base64url").toString("utf8").trim();
+  } catch {
+    return "";
+  }
+}
+
+// Build the unsubscribe URL embedded in the newsletter welcome email.
+// Format: <SITE_URL>/newsletter-unsubscribe?token=<base64url(email)>
+function buildUnsubscribeUrl(email: string): string {
+  return `${SITE_URL}/newsletter-unsubscribe?token=${encodeUnsubscribeToken(
+    email
+  )}`;
+}
+
+// Unsubscribe footer inserted at the bottom of every newsletter email.
+// Small grey paragraph with a single "Se désinscrire" link — matches
+// the Loi 18-07 (Algerian spam law) compliance requirement.
+// Exported so the bulk newsletter send route can reuse the same footer
+// (ensures every bulk email has the legally-required unsubscribe link).
+// Localized: Arabic variant uses an Arabic translation of the message.
+export function unsubscribeFooter(
+  email: string,
+  lang: EmailLang = "fr"
+): string {
+  if (lang === "ar") {
+    return `              <p style="font-size:12px;color:#64748b;margin-top:24px;direction:rtl;text-align:right;">
+                تتلقون هذه الرسالة لأنكم اشتركتم في نشرة مجموعة أوضاح لطب الأسنان. <a href="${buildUnsubscribeUrl(
+                  email
+                )}" style="color:${BRAND.color};text-decoration:none;">إلغاء الاشتراك</a>
+              </p>`;
+  }
+  return `              <p style="font-size:12px;color:#64748b;margin-top:24px;">
+                Vous recevez cet email car vous êtes inscrit à la newsletter ODG. <a href="${buildUnsubscribeUrl(
+                  email
+                )}" style="color:${BRAND.color};text-decoration:none;">Se désinscrire</a>
+              </p>`;
+}
 
 export interface SendEmailResult {
   ok?: boolean;
@@ -66,14 +161,25 @@ export async function sendEmail({
   subject,
   html,
   replyTo,
+  template,
 }: {
   to: string | string[];
   subject: string;
   html: string;
   replyTo?: string;
+  /**
+   * Optional template identifier (e.g. "sendQuoteConfirmation").
+   * Recorded in the `email_log` table for audit. Defaults to "unknown"
+   * when not provided (legacy callers).
+   */
+  template?: string;
 }): Promise<SendEmailResult> {
+  const toStr = Array.isArray(to) ? to.join(", ") : to;
+
   if (!SMTP_USER || !SMTP_PASS) {
     console.log("[email] SMTP_USER/SMTP_PASS not set — skipping email");
+    // Non-blocking: log the skip (table may not exist — logEmail swallows).
+    await logEmail({ to: toStr, subject, template, status: "skipped" });
     return { skipped: true };
   }
 
@@ -89,24 +195,45 @@ export async function sendEmail({
     },
   });
 
-  const info = await transporter.sendMail({
-    from: DEFAULT_FROM,
-    to: Array.isArray(to) ? to.join(", ") : to,
-    subject,
-    html,
-    replyTo: replyTo || undefined,
-  });
-
-  return { ok: true, data: { messageId: info.messageId } };
+  try {
+    const info = await transporter.sendMail({
+      from: DEFAULT_FROM,
+      to: toStr,
+      subject,
+      html,
+      replyTo: replyTo || undefined,
+    });
+    // Non-blocking: log the successful send.
+    await logEmail({
+      to: toStr,
+      subject,
+      template,
+      status: "sent",
+      messageId: info.messageId,
+    });
+    return { ok: true, data: { messageId: info.messageId } };
+  } catch (e: any) {
+    // Non-blocking: log the failure (still re-throw to preserve contract).
+    await logEmail({
+      to: toStr,
+      subject,
+      template,
+      status: "failed",
+      error: e?.message || String(e),
+    });
+    throw e;
+  }
 }
 
 // ------------------------------------------------------------
 // HTML helpers — inline-styled, table-based for max compatibility
 // ------------------------------------------------------------
 
-function htmlShell(inner: string): string {
+function htmlShell(inner: string, lang: EmailLang = "fr"): string {
+  const dir = lang === "ar" ? "rtl" : "ltr";
+  const htmlLang = lang === "ar" ? "ar" : "fr";
   return `<!DOCTYPE html>
-<html lang="fr">
+<html lang="${htmlLang}" dir="${dir}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -142,6 +269,18 @@ function headerBlock(subtitle: string): string {
           </tr>`;
 }
 
+// Amber-themed variant used for admin alert emails (e.g. maintenance en
+// retard). Visually distinct from the standard teal header so the admin
+// can immediately spot a warning in their inbox.
+function headerBlockWarning(subtitle: string): string {
+  return `          <tr>
+            <td style="background:${BRAND.warn};padding:24px;text-align:center;">
+              <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:bold;letter-spacing:0.5px;">${BRAND.name}</h1>
+              <p style="color:${BRAND.warnBorder};margin:6px 0 0;font-size:13px;">${subtitle}</p>
+            </td>
+          </tr>`;
+}
+
 function contentBlock(inner: string): string {
   return `          <tr>
             <td style="padding:28px 28px 24px;font-size:15px;line-height:1.6;">
@@ -165,9 +304,13 @@ ${rows}
               </table>`;
 }
 
-function contactFooter(): string {
-  return `              <p style="margin:18px 0 8px;font-size:14px;color:#475569;">Pour toute question, contactez-nous :</p>
-              <p style="margin:0;font-size:14px;color:#0f172a;">
+function contactFooter(lang: EmailLang = "fr"): string {
+  const intro = lang === "ar"
+    ? "لأي سؤال، تواصلوا معنا:"
+    : "Pour toute question, contactez-nous :";
+  const dirStyle = lang === "ar" ? "direction:rtl;text-align:right;" : "";
+  return `              <p style="margin:18px 0 8px;font-size:14px;color:#475569;${dirStyle}">${intro}</p>
+              <p style="margin:0;font-size:14px;color:#0f172a;${dirStyle}">
                 📞 ${BRAND.phone}<br>
                 ✉️ <a href="mailto:${BRAND.email}" style="color:${BRAND.color};text-decoration:none;">${BRAND.email}</a>
               </p>`;
@@ -218,37 +361,63 @@ export async function sendQuoteConfirmation(
     produits: QuoteItem[] | any[];
     wilaya?: string;
     type_client?: string;
-  }
+  },
+  lang: EmailLang = "fr"
 ): Promise<SendEmailResult> {
+  const isAr = lang === "ar";
   const produitsHtml = formatProduitsList(quoteData.produits);
-  const wilaya = quoteData.wilaya || "Non précisée";
-  const typeLabel =
-    TYPE_CLIENT_LABELS[quoteData.type_client || ""] ||
-    quoteData.type_client ||
-    "Non précisé";
+  const wilaya = quoteData.wilaya || (isAr ? "غير محددة" : "Non précisée");
+  const typeLabel = isAr
+    ? TYPE_CLIENT_LABELS_AR[quoteData.type_client || ""] ||
+      quoteData.type_client ||
+      "غير محدد"
+    : TYPE_CLIENT_LABELS[quoteData.type_client || ""] ||
+      quoteData.type_client ||
+      "Non précisé";
+
+  const subtitle = isAr
+    ? "استيراد معدات طب الأسنان — وهران، الجزائر"
+    : BRAND.taglineFr;
+  const h2 = isAr ? "تم استلام طلب عرض السعر ✅" : "Demande de devis reçue ✅";
+  const greeting = isAr
+    ? `مرحباً ${escapeHtml(clientName)}،`
+    : `Bonjour ${escapeHtml(clientName)},`;
+  const body = isAr
+    ? "لقد استلمنا طلب عرض السعر. فريقنا يراجعه وسيتواصل معكم خلال <strong>24 ساعة</strong>."
+    : "Nous avons bien reçu votre demande de devis. Notre équipe l'examine et vous contactera sous <strong>24h</strong>.";
+  const lblProducts = isAr ? "المنتجات" : "Produits";
+  const lblWilaya = isAr ? "الولاية" : "Wilaya";
+  const lblType = isAr ? "نوع المؤسسة" : "Type d'établissement";
+  const closing = isAr ? "شكراً لثقتكم." : "Merci de votre confiance.";
+  const subject = isAr
+    ? "تأكيد طلب عرض سعر — مجموعة أوضاح لطب الأسنان"
+    : "Demande de devis reçue — OUADAH DENTAL GROUPE";
 
   const inner =
-    headerBlock(BRAND.taglineFr) +
-    contentBlock(`              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Demande de devis reçue ✅</h2>
-              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
-              <p style="margin:0 0 8px;">Nous avons bien reçu votre demande de devis. Notre équipe l'examine et vous contactera sous <strong>24h</strong>.</p>
+    headerBlock(subtitle) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">${h2}</h2>
+              <p style="margin:0 0 12px;">${greeting}</p>
+              <p style="margin:0 0 8px;">${body}</p>
 ` +
-      infoBox([
-        ["Produits", produitsHtml],
-        ["Wilaya", escapeHtml(wilaya)],
-        ["Type d'établissement", escapeHtml(typeLabel)],
-      ]) +
-      `              <p style="margin:0 0 8px;">Merci de votre confiance.</p>
-${contactFooter()}`);
+        infoBox([
+          [lblProducts, produitsHtml],
+          [lblWilaya, escapeHtml(wilaya)],
+          [lblType, escapeHtml(typeLabel)],
+        ]) +
+        `              <p style="margin:0 0 8px;">${closing}</p>
+${contactFooter(lang)}`
+    );
 
-  const html = htmlShell(inner);
+  const html = htmlShell(inner, lang);
 
   try {
     return await sendEmail({
       to: clientEmail,
-      subject: "Demande de devis reçue — OUADAH DENTAL GROUPE",
+      subject,
       html,
       replyTo: BRAND.email,
+      template: "sendQuoteConfirmation",
     });
   } catch (e) {
     console.error("[email] sendQuoteConfirmation failed:", e);
@@ -306,6 +475,7 @@ export async function sendQuoteNotificationToAdmin(quoteData: {
       subject: `🔔 Nouveau devis — ${quoteData.nom} (${quoteData.wilaya || "—"})`,
       html,
       replyTo: quoteData.email,
+      template: "sendQuoteNotificationToAdmin",
     });
   } catch (e) {
     console.error("[email] sendQuoteNotificationToAdmin failed:", e);
@@ -350,6 +520,7 @@ export async function sendContactNotificationToAdmin(messageData: {
       subject: `📬 Nouveau message — ${messageData.subject}`,
       html,
       replyTo: messageData.email,
+      template: "sendContactNotificationToAdmin",
     });
   } catch (e) {
     console.error("[email] sendContactNotificationToAdmin failed:", e);
@@ -382,6 +553,7 @@ ${contactFooter()}`);
       subject: "Message bien reçu — OUADAH DENTAL GROUPE",
       html,
       replyTo: BRAND.email,
+      template: "sendContactConfirmationToClient",
     });
   } catch (e) {
     console.error("[email] sendContactConfirmationToClient failed:", e);
@@ -394,31 +566,65 @@ ${contactFooter()}`);
 // ------------------------------------------------------------
 
 export async function sendNewsletterWelcome(
-  email: string
+  email: string,
+  lang: EmailLang = "fr"
 ): Promise<SendEmailResult> {
-  const inner =
-    headerBlock(BRAND.taglineFr) +
-    contentBlock(`              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Bienvenue 🎉</h2>
-              <p style="margin:0 0 12px;">Bonjour,</p>
-              <p style="margin:0 0 12px;">Merci de vous être abonné(e) à la newsletter d'<strong>OUADAH DENTAL GROUPE</strong>.</p>
-              <p style="margin:0 0 12px;">Vous recevrez désormais en avant-première :</p>
-              <ul style="margin:0 0 16px;padding-left:20px;color:#1e293b;font-size:14px;line-height:1.8;">
-                <li>Nos nouveaux produits et marques</li>
-                <li>Les offres exclusives et promotions</li>
-                <li>Les actualités du matériel dentaire</li>
-                <li>Les conseils de nos experts techniques</li>
-              </ul>
-              <p style="margin:0 0 8px;">À très vite !</p>
-${contactFooter()}`);
+  const isAr = lang === "ar";
+  const subtitle = isAr
+    ? "استيراد معدات طب الأسنان — وهران، الجزائر"
+    : BRAND.taglineFr;
+  const h2 = isAr ? "أهلاً وسهلاً 🎉" : "Bienvenue 🎉";
+  const greeting = isAr ? "مرحباً،" : "Bonjour,";
+  const intro = isAr
+    ? "شكراً لاشتراككم في نشرة <strong>مجموعة أوضاح لطب الأسنان</strong>."
+    : "Merci de vous être abonné(e) à la newsletter d'<strong>OUADAH DENTAL GROUPE</strong>.";
+  const preview = isAr
+    ? "ستتلقون من الآن فصاعداً وبشكل استباقي:"
+    : "Vous recevrez désormais en avant-première :";
+  const items = isAr
+    ? [
+        "منتجاتنا وعلاماتنا الجديدة",
+        "العروض الحصرية والتخفيضات",
+        "آخر مستجدات معدات طب الأسنان",
+        "نصائح من خبرائنا التقنيين",
+      ]
+    : [
+        "Nos nouveaux produits et marques",
+        "Les offres exclusives et promotions",
+        "Les actualités du matériel dentaire",
+        "Les conseils de nos experts techniques",
+      ];
+  const closing = isAr ? "نراكم قريباً!" : "À très vite !";
+  const subject = isAr
+    ? "مرحباً بكم في مجموعة أوضاح لطب الأسنان 🎉"
+    : "Bienvenue chez OUADAH DENTAL GROUPE 🎉";
 
-  const html = htmlShell(inner);
+  const itemsHtml = items.map((i) => `                <li>${i}</li>`).join("\n");
+
+  const inner =
+    headerBlock(subtitle) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">${h2}</h2>
+              <p style="margin:0 0 12px;">${greeting}</p>
+              <p style="margin:0 0 12px;">${intro}</p>
+              <p style="margin:0 0 12px;">${preview}</p>
+              <ul style="margin:0 0 16px;padding-left:20px;color:#1e293b;font-size:14px;line-height:1.8;">
+${itemsHtml}
+              </ul>
+              <p style="margin:0 0 8px;">${closing}</p>
+${contactFooter(lang)}
+${unsubscribeFooter(email, lang)}`
+    );
+
+  const html = htmlShell(inner, lang);
 
   try {
     return await sendEmail({
       to: email,
-      subject: "Bienvenue chez OUADAH DENTAL GROUPE 🎉",
+      subject,
       html,
       replyTo: BRAND.email,
+      template: "sendNewsletterWelcome",
     });
   } catch (e) {
     console.error("[email] sendNewsletterWelcome failed:", e);
@@ -472,25 +678,43 @@ function formatDzd(n: number | string | null | undefined): string {
   }
 }
 
-function formatDateTimeFr(iso: string | null | undefined): string {
+function formatDateTimeFr(
+  iso: string | null | undefined,
+  lang: EmailLang = "fr"
+): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return String(iso);
+  const primary = lang === "ar" ? "ar-DZ" : "fr-DZ";
+  const fallback = lang === "ar" ? "ar" : "fr-FR";
   try {
-    return d.toLocaleString("fr-DZ", { dateStyle: "long", timeStyle: "short" });
+    return d.toLocaleString(primary, { dateStyle: "long", timeStyle: "short" });
   } catch {
-    return d.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+    try {
+      return d.toLocaleString(fallback, { dateStyle: "long", timeStyle: "short" });
+    } catch {
+      return d.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+    }
   }
 }
 
-function formatDateFr(iso: string | null | undefined): string {
+function formatDateFr(
+  iso: string | null | undefined,
+  lang: EmailLang = "fr"
+): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return String(iso);
+  const primary = lang === "ar" ? "ar-DZ" : "fr-DZ";
+  const fallback = lang === "ar" ? "ar" : "fr-FR";
   try {
-    return d.toLocaleDateString("fr-DZ", { dateStyle: "long" });
+    return d.toLocaleDateString(primary, { dateStyle: "long" });
   } catch {
-    return d.toLocaleDateString("fr-FR", { dateStyle: "long" });
+    try {
+      return d.toLocaleDateString(fallback, { dateStyle: "long" });
+    } catch {
+      return d.toLocaleDateString("fr-FR", { dateStyle: "long" });
+    }
   }
 }
 
@@ -520,35 +744,60 @@ export async function sendDevisValideEmail(
     lignes?: any[];
     date_emission?: string | null;
     date_validite?: string | null;
-  }
+  },
+  lang: EmailLang = "fr"
 ): Promise<SendEmailResult> {
+  const isAr = lang === "ar";
   const numero = devisData.numero || "—";
   const lignesHtml = formatDevisLignes(devisData.lignes);
 
+  const subtitle = isAr
+    ? "استيراد معدات طب الأسنان — وهران، الجزائر"
+    : BRAND.taglineFr;
+  const h2 = isAr ? "عرض السعر جاهز 📄" : "Votre devis est prêt 📄";
+  const greeting = isAr
+    ? `مرحباً ${escapeHtml(clientName)}،`
+    : `Bonjour ${escapeHtml(clientName)},`;
+  const body = isAr
+    ? `عرض سعركم <strong>ODG #${escapeHtml(numero)}</strong> جاهز. تجدون ملخصه أدناه:`
+    : `Votre devis <strong>ODG #${escapeHtml(numero)}</strong> est prêt. Vous en trouverez le récapitulatif ci-dessous :`;
+  const lblNumero = isAr ? "رقم العرض" : "N° de devis";
+  const lblDateEmission = isAr ? "تاريخ الإصدار" : "Date d'émission";
+  const lblDateValidite = isAr ? "صالح حتى" : "Valide jusqu'au";
+  const lblMontant = isAr ? "المبلغ الإجمالي" : "Montant total";
+  const lblLignes = isAr ? "البنود" : "Lignes";
+  const closing = isAr
+    ? "لأي سؤال أو لمناقشة الشروط، لا تترددوا في الاتصال بنا — سنرد عليكم خلال 24 ساعة."
+    : "Pour toute question ou pour discuter des conditions, n'hésitez pas à nous contacter — nous vous répondrons sous 24h.";
+  const subject = isAr
+    ? `عرض سعر مجموعة أوضاح رقم #${numero} جاهز`
+    : `Votre devis ODG #${numero} est prêt`;
+
   const inner =
-    headerBlock(BRAND.taglineFr) +
+    headerBlock(subtitle) +
     contentBlock(
-      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Votre devis est prêt 📄</h2>
-              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
-              <p style="margin:0 0 8px;">Votre devis <strong>ODG #${escapeHtml(numero)}</strong> est prêt. Vous en trouverez le récapitulatif ci-dessous :</p>
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">${h2}</h2>
+              <p style="margin:0 0 12px;">${greeting}</p>
+              <p style="margin:0 0 8px;">${body}</p>
 ` +
         infoBox([
-          ["N° de devis", escapeHtml(numero)],
-          ["Date d'émission", formatDateFr(devisData.date_emission)],
-          ["Valide jusqu'au", formatDateFr(devisData.date_validite)],
-          ["Montant total", formatDzd(devisData.montant_total)],
-          ["Lignes", lignesHtml],
+          [lblNumero, escapeHtml(numero)],
+          [lblDateEmission, formatDateFr(devisData.date_emission, lang)],
+          [lblDateValidite, formatDateFr(devisData.date_validite, lang)],
+          [lblMontant, formatDzd(devisData.montant_total)],
+          [lblLignes, lignesHtml],
         ]) +
-        `              <p style="margin:0 0 8px;">Pour toute question ou pour discuter des conditions, n'hésitez pas à nous contacter — nous vous répondrons sous 24h.</p>
-${contactFooter()}`
+        `              <p style="margin:0 0 8px;">${closing}</p>
+${contactFooter(lang)}`
     );
 
-  const html = htmlShell(inner);
+  const html = htmlShell(inner, lang);
   return await sendEmail({
     to: clientEmail,
-    subject: `Votre devis ODG #${numero} est prêt`,
+    subject,
     html,
     replyTo: BRAND.email,
+    template: "sendDevisValideEmail",
   });
 }
 
@@ -559,37 +808,69 @@ export async function sendDevisAccepteEmail(
   devisData: {
     numero?: string;
     montant_total?: number | string;
-  }
+  },
+  lang: EmailLang = "fr"
 ): Promise<SendEmailResult> {
+  const isAr = lang === "ar";
   const numero = devisData.numero || "—";
 
+  const subtitle = isAr
+    ? "استيراد معدات طب الأسنان — وهران، الجزائر"
+    : BRAND.taglineFr;
+  const h2 = isAr ? "تم قبول عرض السعر — شكراً! 🤝" : "Devis accepté — merci ! 🤝";
+  const greeting = isAr
+    ? `مرحباً ${escapeHtml(clientName)}،`
+    : `Bonjour ${escapeHtml(clientName)},`;
+  const body = isAr
+    ? `نشكركم على قبول عرض السعر <strong>ODG #${escapeHtml(numero)}</strong>. يسعدنا أن نكمل طلبكم.`
+    : `Nous vous remercions d'avoir accepté le devis <strong>ODG #${escapeHtml(numero)}</strong>. C'est avec plaisir que nous allons finaliser votre commande.`;
+  const lblNumero = isAr ? "رقم العرض" : "N° de devis";
+  const lblMontant = isAr ? "المبلغ الإجمالي" : "Montant total";
+  const stepsTitle = isAr ? "<strong>الخطوات التالية:</strong>" : "<strong>Prochaines étapes :</strong>";
+  const steps = isAr
+    ? [
+        "سيتواصل معكم فريقنا التجاري لإنهاء الطلب.",
+        "بعد ذلك سنخطط للتسليم و/أو التركيب حسب توفركم.",
+        "سيتم تفعيل ضمان لمدة 24 شهراً عند التسليم.",
+      ]
+    : [
+        "Notre équipe commerciale vous contactera pour finaliser la commande.",
+        "Nous planifierons ensuite la livraison et/ou l'installation selon vos disponibilités.",
+        "Une garantie de 24 mois sera activée dès la livraison.",
+      ];
+  const closing = isAr ? "شكراً لثقتكم." : "Merci de votre confiance.";
+  const subject = isAr
+    ? "تم قبول عرض السعر — شكراً لثقتكم"
+    : "Devis accepté — merci de votre confiance";
+
+  const stepsHtml = steps.map((s) => `                <li>${s}</li>`).join("\n");
+
   const inner =
-    headerBlock(BRAND.taglineFr) +
+    headerBlock(subtitle) +
     contentBlock(
-      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Devis accepté — merci ! 🤝</h2>
-              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
-              <p style="margin:0 0 8px;">Nous vous remercions d'avoir accepté le devis <strong>ODG #${escapeHtml(numero)}</strong>. C'est avec plaisir que nous allons finaliser votre commande.</p>
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">${h2}</h2>
+              <p style="margin:0 0 12px;">${greeting}</p>
+              <p style="margin:0 0 8px;">${body}</p>
 ` +
         infoBox([
-          ["N° de devis", escapeHtml(numero)],
-          ["Montant total", formatDzd(devisData.montant_total)],
+          [lblNumero, escapeHtml(numero)],
+          [lblMontant, formatDzd(devisData.montant_total)],
         ]) +
-        `              <p style="margin:0 0 8px;"><strong>Prochaines étapes :</strong></p>
+        `              <p style="margin:0 0 8px;">${stepsTitle}</p>
               <ul style="margin:0 0 16px;padding-left:20px;color:#1e293b;font-size:14px;line-height:1.8;">
-                <li>Notre équipe commerciale vous contactera pour finaliser la commande.</li>
-                <li>Nous planifierons ensuite la livraison et/ou l'installation selon vos disponibilités.</li>
-                <li>Une garantie de 24 mois sera activée dès la livraison.</li>
+${stepsHtml}
               </ul>
-              <p style="margin:0 0 8px;">Merci de votre confiance.</p>
-${contactFooter()}`
+              <p style="margin:0 0 8px;">${closing}</p>
+${contactFooter(lang)}`
     );
 
-  const html = htmlShell(inner);
+  const html = htmlShell(inner, lang);
   return await sendEmail({
     to: clientEmail,
-    subject: "Devis accepté — merci de votre confiance",
+    subject,
     html,
     replyTo: BRAND.email,
+    template: "sendDevisAccepteEmail",
   });
 }
 
@@ -601,32 +882,55 @@ export async function sendCommandeCreatedEmail(
     numero?: string;
     date_commande?: string | null;
     date_livraison_prevue?: string | null;
-  }
+  },
+  lang: EmailLang = "fr"
 ): Promise<SendEmailResult> {
+  const isAr = lang === "ar";
   const numero = commandeData.numero || "—";
 
+  const subtitle = isAr
+    ? "استيراد معدات طب الأسنان — وهران، الجزائر"
+    : BRAND.taglineFr;
+  const h2 = isAr ? "تأكيد الطلب 📦" : "Confirmation de commande 📦";
+  const greeting = isAr
+    ? `مرحباً ${escapeHtml(clientName)}،`
+    : `Bonjour ${escapeHtml(clientName)},`;
+  const body = isAr
+    ? `لقد سجلنا طلبكم <strong>ODG #${escapeHtml(numero)}</strong>. إليكم المعلومات الرئيسية:`
+    : `Nous avons bien enregistré votre commande <strong>ODG #${escapeHtml(numero)}</strong>. Voici les informations principales :`;
+  const lblNumero = isAr ? "رقم الطلب" : "N° de commande";
+  const lblDateCmd = isAr ? "تاريخ الطلب" : "Date de commande";
+  const lblLivraison = isAr ? "تاريخ التسليم المتوقع" : "Livraison estimée";
+  const closing = isAr
+    ? "سيبقيكم فريقنا على اطلاع في كل مرحلة من مراحل تحضير وتسليم طلبكم."
+    : "Notre équipe vous tiendra informé(e) à chaque étape de la préparation et de la livraison de votre commande.";
+  const subject = isAr
+    ? `تأكيد الطلب رقم #${numero}`
+    : `Confirmation de commande #${numero}`;
+
   const inner =
-    headerBlock(BRAND.taglineFr) +
+    headerBlock(subtitle) +
     contentBlock(
-      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Confirmation de commande 📦</h2>
-              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
-              <p style="margin:0 0 8px;">Nous avons bien enregistré votre commande <strong>ODG #${escapeHtml(numero)}</strong>. Voici les informations principales :</p>
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">${h2}</h2>
+              <p style="margin:0 0 12px;">${greeting}</p>
+              <p style="margin:0 0 8px;">${body}</p>
 ` +
         infoBox([
-          ["N° de commande", escapeHtml(numero)],
-          ["Date de commande", formatDateFr(commandeData.date_commande)],
-          ["Livraison estimée", formatDateFr(commandeData.date_livraison_prevue)],
+          [lblNumero, escapeHtml(numero)],
+          [lblDateCmd, formatDateFr(commandeData.date_commande, lang)],
+          [lblLivraison, formatDateFr(commandeData.date_livraison_prevue, lang)],
         ]) +
-        `              <p style="margin:0 0 8px;">Notre équipe vous tiendra informé(e) à chaque étape de la préparation et de la livraison de votre commande.</p>
-${contactFooter()}`
+        `              <p style="margin:0 0 8px;">${closing}</p>
+${contactFooter(lang)}`
     );
 
-  const html = htmlShell(inner);
+  const html = htmlShell(inner, lang);
   return await sendEmail({
     to: clientEmail,
-    subject: `Confirmation de commande #${numero}`,
+    subject,
     html,
     replyTo: BRAND.email,
+    template: "sendCommandeCreatedEmail",
   });
 }
 
@@ -637,8 +941,10 @@ export async function sendCommandeLivreeEmail(
   commandeData: {
     numero?: string;
     date_livraison_reelle?: string | null;
-  }
+  },
+  lang: EmailLang = "fr"
 ): Promise<SendEmailResult> {
+  const isAr = lang === "ar";
   const numero = commandeData.numero || "—";
   // Garantie window: 24 months starting today.
   const today = new Date();
@@ -647,28 +953,52 @@ export async function sendCommandeLivreeEmail(
   const livraisonIso =
     commandeData.date_livraison_reelle || today.toISOString();
 
+  const subtitle = isAr
+    ? "استيراد معدات طب الأسنان — وهران، الجزائر"
+    : BRAND.taglineFr;
+  const h2 = isAr ? "تم تسليم الطلب ✅" : "Commande livrée ✅";
+  const greeting = isAr
+    ? `مرحباً ${escapeHtml(clientName)}،`
+    : `Bonjour ${escapeHtml(clientName)},`;
+  const body = isAr
+    ? `تم تسليم طلبكم <strong>ODG #${escapeHtml(numero)}</strong>. نأمل أن يلبي المعدات توقعاتكم.`
+    : `Votre commande <strong>ODG #${escapeHtml(numero)}</strong> a été livrée. Nous espérons que le matériel répond à vos attentes.`;
+  const lblNumero = isAr ? "رقم الطلب" : "N° de commande";
+  const lblDateLivraison = isAr ? "تاريخ التسليم" : "Date de livraison";
+  const garantieTitle = isAr ? "<strong>الضمان:</strong>" : "<strong>Garantie :</strong>";
+  const garantieBody = isAr
+    ? `ضمان لمدة <strong>24 شهراً</strong> أصبح ساري المفعول على معداتكم. بدأ في <strong>${formatDateFr(today.toISOString(), lang)}</strong> وسينتهي في <strong>${formatDateFr(fin.toISOString(), lang)}</strong>.`
+    : `une garantie de <strong>24 mois</strong> est désormais active sur votre matériel. Elle a débuté le <strong>${formatDateFr(today.toISOString(), lang)}</strong> et expirera le <strong>${formatDateFr(fin.toISOString(), lang)}</strong>.`;
+  const closing = isAr
+    ? "لأي مشكلة تقنية أو عيب أو سؤال حول المعدات المسلمة، لا تترددوا في الاتصال بنا — سننظم تدخلاً عند الحاجة."
+    : "Pour tout problème technique, défaut ou question sur le matériel livré, n'hésitez pas à nous contacter — nous organiserons une intervention si nécessaire.";
+  const subject = isAr
+    ? `تم تسليم طلبكم رقم #${numero}`
+    : `Votre commande #${numero} a été livrée`;
+
   const inner =
-    headerBlock(BRAND.taglineFr) +
+    headerBlock(subtitle) +
     contentBlock(
-      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Commande livrée ✅</h2>
-              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
-              <p style="margin:0 0 8px;">Votre commande <strong>ODG #${escapeHtml(numero)}</strong> a été livrée. Nous espérons que le matériel répond à vos attentes.</p>
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">${h2}</h2>
+              <p style="margin:0 0 12px;">${greeting}</p>
+              <p style="margin:0 0 8px;">${body}</p>
 ` +
         infoBox([
-          ["N° de commande", escapeHtml(numero)],
-          ["Date de livraison", formatDateFr(livraisonIso)],
+          [lblNumero, escapeHtml(numero)],
+          [lblDateLivraison, formatDateFr(livraisonIso, lang)],
         ]) +
-        `              <p style="margin:0 0 8px;"><strong>Garantie :</strong> une garantie de <strong>24 mois</strong> est désormais active sur votre matériel. Elle a débuté le <strong>${formatDateFr(today.toISOString())}</strong> et expirera le <strong>${formatDateFr(fin.toISOString())}</strong>.</p>
-              <p style="margin:0 0 8px;">Pour tout problème technique, défaut ou question sur le matériel livré, n'hésitez pas à nous contacter — nous organiserons une intervention si nécessaire.</p>
-${contactFooter()}`
+        `              <p style="margin:0 0 8px;">${garantieTitle} ${garantieBody}</p>
+              <p style="margin:0 0 8px;">${closing}</p>
+${contactFooter(lang)}`
     );
 
-  const html = htmlShell(inner);
+  const html = htmlShell(inner, lang);
   return await sendEmail({
     to: clientEmail,
-    subject: `Votre commande #${numero} a été livrée`,
+    subject,
     html,
     replyTo: BRAND.email,
+    template: "sendCommandeLivreeEmail",
   });
 }
 
@@ -682,42 +1012,71 @@ export async function sendInterventionPlanifieeEmail(
     technicien_nom?: string | null;
     adresse_intervention?: string | null;
     duree_estimee_min?: number | string | null;
-  }
+  },
+  lang: EmailLang = "fr"
 ): Promise<SendEmailResult> {
-  const typeLabel =
-    TYPE_INTERVENTION_LABELS[interventionData.type || ""] ||
-    interventionData.type ||
-    "Rendez-vous";
-  const dateStr = formatDateTimeFr(interventionData.date_prevue);
+  const isAr = lang === "ar";
+  const typeLabel = isAr
+    ? TYPE_INTERVENTION_LABELS_AR[interventionData.type || ""] ||
+      interventionData.type ||
+      "موعد"
+    : TYPE_INTERVENTION_LABELS[interventionData.type || ""] ||
+      interventionData.type ||
+      "Rendez-vous";
+  const dateStr = formatDateTimeFr(interventionData.date_prevue, lang);
   const dureeNum = Number(interventionData.duree_estimee_min);
   const duree = Number.isFinite(dureeNum) && dureeNum > 0
-    ? `${dureeNum} min`
+    ? `${dureeNum} ${isAr ? "دقيقة" : "min"}`
     : "—";
 
+  const subtitle = isAr
+    ? "استيراد معدات طب الأسنان — وهران، الجزائر"
+    : BRAND.taglineFr;
+  const h2 = isAr ? "تم جدولة موعد 📅" : "Rendez-vous planifié 📅";
+  const greeting = isAr
+    ? `مرحباً ${escapeHtml(clientName)}،`
+    : `Bonjour ${escapeHtml(clientName)},`;
+  const body = isAr
+    ? "تم جدولة موعد في مقركم من طرف مجموعة أوضاح لطب الأسنان. إليكم التفاصيل:"
+    : "Un rendez-vous a été planifié chez vous par OUADAH DENTAL GROUPE. En voici les détails :";
+  const lblType = isAr ? "نوع التدخل" : "Type d'intervention";
+  const lblDate = isAr ? "التاريخ والوقت" : "Date et heure";
+  const lblTechnicien = isAr ? "الفني" : "Technicien";
+  const lblAdresse = isAr ? "العنوان" : "Adresse";
+  const lblDuree = isAr ? "المدة المقدرة" : "Durée estimée";
+  const prepareTitle = isAr ? "<strong>تحضير فضائكم:</strong>" : "<strong>Préparez votre espace :</strong>";
+  const prepareBody = isAr
+    ? "يرجى إخلاء منطقة التدخل والتأكد من إمكانية الوصول إلى المعدات المعنية. سيصل الفني في الوقت المحدد."
+    : "merci de dégager la zone d'intervention et de vous assurer que l'accès au matériel concerné est possible. Notre technicien arrivera à l'heure prévue.";
+  const subject = isAr
+    ? `موعد مجدول: ${typeLabel} في ${dateStr}`
+    : `RDV planifié : ${typeLabel} le ${dateStr}`;
+
   const inner =
-    headerBlock(BRAND.taglineFr) +
+    headerBlock(subtitle) +
     contentBlock(
-      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Rendez-vous planifié 📅</h2>
-              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
-              <p style="margin:0 0 8px;">Un rendez-vous a été planifié chez vous par OUADAH DENTAL GROUPE. En voici les détails :</p>
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">${h2}</h2>
+              <p style="margin:0 0 12px;">${greeting}</p>
+              <p style="margin:0 0 8px;">${body}</p>
 ` +
         infoBox([
-          ["Type d'intervention", escapeHtml(typeLabel)],
-          ["Date et heure", escapeHtml(dateStr)],
-          ["Technicien", escapeHtml(interventionData.technicien_nom || "—")],
-          ["Adresse", escapeHtml(interventionData.adresse_intervention || "—")],
-          ["Durée estimée", escapeHtml(duree)],
+          [lblType, escapeHtml(typeLabel)],
+          [lblDate, escapeHtml(dateStr)],
+          [lblTechnicien, escapeHtml(interventionData.technicien_nom || "—")],
+          [lblAdresse, escapeHtml(interventionData.adresse_intervention || "—")],
+          [lblDuree, escapeHtml(duree)],
         ]) +
-        `              <p style="margin:0 0 8px;"><strong>Préparez votre espace :</strong> merci de dégager la zone d'intervention et de vous assurer que l'accès au matériel concerné est possible. Notre technicien arrivera à l'heure prévue.</p>
-${contactFooter()}`
+        `              <p style="margin:0 0 8px;">${prepareTitle} ${prepareBody}</p>
+${contactFooter(lang)}`
     );
 
-  const html = htmlShell(inner);
+  const html = htmlShell(inner, lang);
   return await sendEmail({
     to: clientEmail,
-    subject: `RDV planifié : ${typeLabel} le ${dateStr}`,
+    subject,
     html,
     replyTo: BRAND.email,
+    template: "sendInterventionPlanifieeEmail",
   });
 }
 
@@ -729,32 +1088,341 @@ export async function sendInterventionTermineeEmail(
     type?: string;
     rapport?: string | null;
     date_realisee?: string | null;
+  },
+  lang: EmailLang = "fr"
+): Promise<SendEmailResult> {
+  const isAr = lang === "ar";
+  const typeLabel = isAr
+    ? TYPE_INTERVENTION_LABELS_AR[interventionData.type || ""] ||
+      interventionData.type ||
+      "تدخل"
+    : TYPE_INTERVENTION_LABELS[interventionData.type || ""] ||
+      interventionData.type ||
+      "Intervention";
+
+  const subtitle = isAr
+    ? "استيراد معدات طب الأسنان — وهران، الجزائر"
+    : BRAND.taglineFr;
+  const h2 = isAr ? "تم إنهاء التدخل ✅" : "Intervention terminée ✅";
+  const greeting = isAr
+    ? `مرحباً ${escapeHtml(clientName)}،`
+    : `Bonjour ${escapeHtml(clientName)},`;
+  const bodyPrefix = isAr
+    ? `تدخل نوع <strong>${escapeHtml(typeLabel)}</strong> المبرمج في مقركم قد اكتمل`
+    : `L'intervention de type <strong>${escapeHtml(typeLabel)}</strong> programmée chez vous est à présent terminée`;
+  const bodySuffix = interventionData.date_realisee
+    ? isAr
+      ? ` (أُنجز في ${formatDateFr(interventionData.date_realisee, lang)}).`
+      : ` (réalisée le ${formatDateFr(interventionData.date_realisee, lang)}).`
+    : ".";
+  const rapportTitle = isAr ? "تقرير التدخل:" : "Rapport d'intervention :";
+  const rapportFallback = isAr
+    ? "لا يوجد تقرير مسجل."
+    : "Aucun rapport renseigné.";
+  const closing = isAr
+    ? "يسعدنا أن نحصل على رأيكم حول هذا التدخل. لأي ملاحظة أو طلب إضافي، لا تترددوا في الاتصال بنا."
+    : "Nous serions ravis d'avoir votre retour sur cette intervention. Pour toute remarque ou demande complémentaire, n'hésitez pas à nous contacter.";
+  const subject = isAr ? "انتهاء التدخل — تقرير" : "Intervention terminée — rapport";
+
+  const inner =
+    headerBlock(subtitle) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">${h2}</h2>
+              <p style="margin:0 0 12px;">${greeting}</p>
+              <p style="margin:0 0 8px;">${bodyPrefix}${bodySuffix}</p>
+              <p style="margin:16px 0 6px;font-weight:bold;color:#0f172a;">${rapportTitle}</p>
+              <div style="background:#f8fafc;border-left:3px solid ${BRAND.color};padding:12px 14px;font-size:14px;color:#1e293b;border-radius:4px;white-space:pre-wrap;">
+                ${escapeHtml(interventionData.rapport || rapportFallback)}
+              </div>
+              <p style="margin:16px 0 8px;">${closing}</p>
+${contactFooter(lang)}`
+    );
+
+  const html = htmlShell(inner, lang);
+  return await sendEmail({
+    to: clientEmail,
+    subject,
+    html,
+    replyTo: BRAND.email,
+    template: "sendInterventionTermineeEmail",
+  });
+}
+
+// ============================================================
+// CRM time-based reminder templates (Tier 2 — cron-triggered)
+// Task EMAIL-V2
+// ============================================================
+// These 4 functions are invoked by /api/cron/reminders (daily cron,
+// protected by CRON_SECRET). Each corresponds to one of the 4 time
+// windows defined in the spec. The cron route is responsible for:
+//   - querying Supabase within the right 1-day-wide window
+//   - resolving the recipient's email
+//   - wrapping each call in try/catch so SMTP failures never break
+//     the cron response
+//
+// To avoid duplicate reminders without a `last_reminder_sent` column,
+// each reminder uses a 1-day-wide window (e.g. for #7: between 23h
+// and 25h before the intervention). The cron runs once a day → each
+// row matches at most one run.
+// ============================================================
+
+// ----- Email #7: Rappel intervention 24h avant (cron) -----
+// Trigger: intervention with date_prevue in [now+23h, now+25h] AND
+// statut='planifie'. Sent to the client.
+export async function sendRappelInterventionEmail(
+  clientEmail: string,
+  clientName: string,
+  interventionData: {
+    type?: string;
+    date_prevue?: string | null;
+    technicien_nom?: string | null;
+    adresse_intervention?: string | null;
   }
 ): Promise<SendEmailResult> {
   const typeLabel =
     TYPE_INTERVENTION_LABELS[interventionData.type || ""] ||
     interventionData.type ||
-    "Intervention";
+    "Rendez-vous";
+  const dateStr = formatDateTimeFr(interventionData.date_prevue);
 
   const inner =
     headerBlock(BRAND.taglineFr) +
     contentBlock(
-      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Intervention terminée ✅</h2>
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Rappel : rendez-vous demain 📅</h2>
               <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
-              <p style="margin:0 0 8px;">L'intervention de type <strong>${escapeHtml(typeLabel)}</strong> programmée chez vous est à présent terminée${interventionData.date_realisee ? ` (réalisée le ${formatDateFr(interventionData.date_realisee)})` : ""}.</p>
-              <p style="margin:16px 0 6px;font-weight:bold;color:#0f172a;">Rapport d'intervention :</p>
-              <div style="background:#f8fafc;border-left:3px solid ${BRAND.color};padding:12px 14px;font-size:14px;color:#1e293b;border-radius:4px;white-space:pre-wrap;">
-                ${escapeHtml(interventionData.rapport || "Aucun rapport renseigné.")}
-              </div>
-              <p style="margin:16px 0 8px;">Nous serions ravis d'avoir votre retour sur cette intervention. Pour toute remarque ou demande complémentaire, n'hésitez pas à nous contacter.</p>
+              <p style="margin:0 0 8px;">Petit rappel : nous avons rendez-vous <strong>demain</strong> avec vous. Voici les détails :</p>
+` +
+        infoBox([
+          ["Type d'intervention", escapeHtml(typeLabel)],
+          ["Date et heure", escapeHtml(dateStr)],
+          ["Technicien", escapeHtml(interventionData.technicien_nom || "—")],
+          ["Adresse", escapeHtml(interventionData.adresse_intervention || "—")],
+        ]) +
+        `              <p style="margin:0 0 8px;"><strong>À demain !</strong> Merci de préparer l'espace d'intervention et de vous assurer que l'accès au matériel concerné est possible.</p>
+              <p style="margin:0 0 8px;">En cas d'imprévu ou pour reporter, contactez-nous au plus vite.</p>
 ${contactFooter()}`
     );
 
   const html = htmlShell(inner);
   return await sendEmail({
     to: clientEmail,
-    subject: "Intervention terminée — rapport",
+    subject: "Rappel : votre RDV ODG demain",
     html,
     replyTo: BRAND.email,
+    template: "sendRappelInterventionEmail",
   });
 }
+
+// ----- Email #8: Rappel maintenance préventive à venir (cron) -----
+// Trigger: maintenance (type='preventive') with date_prevue in
+// [now+6d, now+8d] AND statut='planifie'. Sent to the client.
+export async function sendRappelMaintenanceEmail(
+  clientEmail: string,
+  clientName: string,
+  maintenanceData: {
+    date_prevue?: string | null;
+    produit_nom?: string | null;
+    description?: string | null;
+  }
+): Promise<SendEmailResult> {
+  const dateStr = formatDateFr(maintenanceData.date_prevue);
+  const produit = maintenanceData.produit_nom || "Votre matériel";
+
+  const inner =
+    headerBlock(BRAND.taglineFr) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Entretien à venir 🛠️</h2>
+              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
+              <p style="margin:0 0 8px;">Un entretien préventif est planifié sur <strong>${escapeHtml(produit)}</strong> dans les prochains jours. Voici les informations :</p>
+` +
+        infoBox([
+          ["Date prévue", escapeHtml(dateStr)],
+          ["Matériel concerné", escapeHtml(produit)],
+          [
+            "Description",
+            escapeHtml(maintenanceData.description || "Entretien préventif programmé."),
+          ],
+        ]) +
+        `              <p style="margin:0 0 8px;">Cet entretien permet de prolonger la durée de vie de votre matériel et d'éviter les pannes. <strong>Pour reporter si besoin</strong>, merci de nous contacter rapidement afin que nous puissions réorganiser le passage du technicien.</p>
+${contactFooter()}`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: clientEmail,
+    subject: "Rappel : entretien à venir",
+    html,
+    replyTo: BRAND.email,
+    template: "sendRappelMaintenanceEmail",
+  });
+}
+
+// ----- Email #9: Expiration garantie à 30 jours (cron) -----
+// Trigger: garantie with date_fin in [now+29d, now+31d] AND actif=true.
+// Sent to the client. Offers renewal / extension.
+export async function sendGarantieExpirationEmail(
+  clientEmail: string,
+  clientName: string,
+  garantieData: {
+    produit_nom?: string | null;
+    date_fin?: string | null;
+    date_debut?: string | null;
+    duree_mois?: number | string | null;
+  }
+): Promise<SendEmailResult> {
+  const dateFinStr = formatDateFr(garantieData.date_fin);
+  const produit = garantieData.produit_nom || "votre matériel";
+  const dureeNum = Number(garantieData.duree_mois);
+
+  const inner =
+    headerBlock(BRAND.taglineFr) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Votre garantie expire bientôt ⏳</h2>
+              <p style="margin:0 0 12px;">Bonjour ${escapeHtml(clientName)},</p>
+              <p style="margin:0 0 8px;">Nous vous informons que la garantie sur <strong>${escapeHtml(produit)}</strong> arrive à échéance dans environ 30 jours.</p>
+` +
+        infoBox([
+          ["Matériel", escapeHtml(produit)],
+          ["Date de fin de garantie", escapeHtml(dateFinStr)],
+          ...(garantieData.date_debut
+            ? ([["Date de début", formatDateFr(garantieData.date_debut)]] as [string, string][])
+            : ([] as [string, string][])),
+          [
+            "Durée initiale",
+            Number.isFinite(dureeNum) && dureeNum > 0
+              ? `${dureeNum} mois`
+              : "—",
+          ],
+        ]) +
+        `              <p style="margin:0 0 8px;">Pour continuer à bénéficier d'une couverture optimale et de notre service après-vente, nous vous proposons :</p>
+              <ul style="margin:0 0 16px;padding-left:20px;color:#1e293b;font-size:14px;line-height:1.8;">
+                <li><strong>Renouvellement</strong> de votre garantie pour une nouvelle période.</li>
+                <li><strong>Extension</strong> avec de nouvelles options (maintenance préventive, pièces prioritaires...).</li>
+                <li>Un <strong>contrat de maintenance</strong> sur mesure adapté à votre utilisation.</li>
+              </ul>
+              <p style="margin:0 0 8px;">Contactez-nous dès que possible pour étudier ensemble la meilleure option.</p>
+${contactFooter()}`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: clientEmail,
+    subject: "Votre garantie expire bientôt",
+    html,
+    replyTo: BRAND.email,
+    template: "sendGarantieExpirationEmail",
+  });
+}
+
+// ----- Email #10: Alerte maintenance en retard → admin (cron) -----
+// Trigger: maintenance with date_prevue in [now-9d, now-7d] AND
+// statut NOT IN ('termine','annule'). Sent to EMAIL_TO (admin inbox).
+// Uses the amber-themed headerBlockWarning for visual differentiation.
+export async function sendMaintenanceRetardAlertEmail(
+  adminEmail: string,
+  maintenanceData: {
+    id?: string;
+    type?: string;
+    date_prevue?: string | null;
+    produit_nom?: string | null;
+    client_nom?: string | null;
+    description?: string | null;
+    statut?: string | null;
+  }
+): Promise<SendEmailResult> {
+  const dateStr = formatDateFr(maintenanceData.date_prevue);
+  const produit = maintenanceData.produit_nom || "Matériel non précisé";
+  const client = maintenanceData.client_nom || "Client inconnu";
+  const typeLabel =
+    maintenanceData.type === "curative"
+      ? "Curative"
+      : maintenanceData.type === "preventive"
+      ? "Préventive"
+      : maintenanceData.type || "—";
+
+  const inner =
+    headerBlockWarning("Alerte : maintenance en retard") +
+    contentBlock(
+      `              <h2 style="color:${BRAND.warn};margin:0 0 12px;font-size:19px;">⚠️ Maintenance non réalisée</h2>
+              <p style="margin:0 0 8px;">Une maintenance planifiée n'a pas été réalisée dans le délai imparti (plus de 7 jours de retard). Merci de planifier une intervention curative dans les meilleurs délais.</p>
+` +
+        infoBox([
+          ["Client", escapeHtml(client)],
+          ["Matériel concerné", escapeHtml(produit)],
+          ["Type de maintenance", escapeHtml(typeLabel)],
+          ["Date prévue", escapeHtml(dateStr)],
+          ["Statut actuel", escapeHtml(maintenanceData.statut || "—")],
+          ...(maintenanceData.id
+            ? ([["ID maintenance", escapeHtml(String(maintenanceData.id))]] as [string, string][])
+            : ([] as [string, string][])),
+        ]) +
+        `              <p style="margin:16px 0 6px;font-weight:bold;color:#0f172a;">Description :</p>
+              <div style="background:${BRAND.warnLight};border-left:3px solid ${BRAND.warn};padding:10px 14px;font-size:14px;color:#1e293b;border-radius:4px;white-space:pre-wrap;">
+                ${escapeHtml(maintenanceData.description || "—")}
+              </div>
+              <p style="margin:18px 0 0;font-size:13px;color:#64748b;">
+                Connectez-vous à l'interface admin pour planifier une intervention curative et avertir le client.
+              </p>`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: adminEmail,
+    subject: "⚠️ Maintenance en retard",
+    html,
+    replyTo: BRAND.email,
+    template: "sendMaintenanceRetardAlertEmail",
+  });
+}
+
+// ============================================================
+// Newsletter unsubscribe confirmation (#13 — Loi 18-07 compliance)
+// Task EMAIL-V2
+// ============================================================
+// Sent to a subscriber AFTER they've been removed from the
+// `newsletter_subscribers` table (i.e. after the unsubscribe API
+// succeeded). Confirms the action + tells them how to resubscribe
+// if it was a mistake. Uses the standard teal header (informational,
+// not an alert).
+//
+// The unsubscribe link is intentionally NOT included here — they
+// just unsubscribed, no need to show another "Se désinscrire" link.
+// ============================================================
+export async function sendUnsubscribeConfirmation(
+  clientEmail: string
+): Promise<SendEmailResult> {
+  const inner =
+    headerBlock(BRAND.taglineFr) +
+    contentBlock(
+      `              <h2 style="color:${BRAND.color};margin:0 0 12px;font-size:19px;">Désinscription confirmée ✅</h2>
+              <p style="margin:0 0 12px;">Bonjour,</p>
+              <p style="margin:0 0 12px;">Nous confirmons que vous avez été <strong>désinscrit(e)</strong> de la newsletter d'<strong>OUADAH DENTAL GROUPE</strong>. Vous ne recevrez plus d'emails de notre part à cette adresse.</p>
+              <p style="margin:0 0 12px;">Si cette action était une erreur, ou si vous changez d'avis, vous pouvez à tout moment vous réinscrire depuis le formulaire de newsletter en bas de notre site.</p>
+              <p style="margin:0 0 8px;">Merci de votre intérêt pour ODG.</p>
+${contactFooter()}`
+    );
+
+  const html = htmlShell(inner);
+  return await sendEmail({
+    to: clientEmail,
+    subject: "Désinscription confirmée — OUADAH DENTAL GROUPE",
+    html,
+    replyTo: BRAND.email,
+    template: "sendUnsubscribeConfirmation",
+  });
+}
+
+// ============================================================
+// English-named aliases (Task EMAIL-V2 spec compliance)
+// ============================================================
+// The task spec lists the 4 reminder functions under English names
+// (`sendInterventionReminder24h`, `sendMaintenanceReminder7d`,
+// `sendGarantieExpiryWarning`, `sendMaintenanceOverdueAlert`).
+// The implementation above uses French names for consistency with
+// the rest of email.ts (sendDevisValideEmail, etc.). These aliases
+// re-export the French implementations under the English names so
+// both naming conventions work — the cron route can import either.
+export const sendInterventionReminder24h = sendRappelInterventionEmail;
+export const sendMaintenanceReminder7d = sendRappelMaintenanceEmail;
+export const sendGarantieExpiryWarning = sendGarantieExpirationEmail;
+export const sendMaintenanceOverdueAlert = sendMaintenanceRetardAlertEmail;
