@@ -10,6 +10,7 @@ import {
   Package,
   FileText,
   ArrowRight,
+  SlidersHorizontal,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -364,9 +365,14 @@ export function Header() {
     return r.startsWith(path) || (path === "" && (r === "" || r === "/"));
   };
 
-  const links: { path: string; key: "home" | "catalogue" | "blog" | "about" | "contact" }[] = [
+  const links: {
+    path: string;
+    key: "home" | "catalogue" | "configuratorNav" | "financing" | "blog" | "about" | "contact";
+  }[] = [
     { path: "", key: "home" },
     { path: "catalogue", key: "catalogue" },
+    { path: "configurateur", key: "configuratorNav" },
+    { path: "financement", key: "financing" },
     { path: "blog", key: "blog" },
     { path: "apropos", key: "about" },
     { path: "contact", key: "contact" },
@@ -448,6 +454,17 @@ export function Header() {
 
           <LanguageSwitch />
 
+          {/* Configurateur — prominent CTA (Task BONUS-1) */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden border-brand-300 text-brand-700 hover:bg-brand-50 hover:text-brand-800 md:inline-flex"
+            onClick={() => go("configurateur")}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            {t("configuratorNav")}
+          </Button>
+
           <Button size="sm" className="hidden md:inline-flex" onClick={() => go("contact")}>
             {t("requestQuote")}
           </Button>
@@ -478,6 +495,15 @@ export function Header() {
                 {t(l.key)}
               </button>
             ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 border-brand-300 text-brand-700 hover:bg-brand-50 hover:text-brand-800"
+              onClick={() => go("configurateur")}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {t("configuratorNav")}
+            </Button>
             <Button size="sm" className="mt-2" onClick={() => go("contact")}>
               {t("requestQuote")}
             </Button>

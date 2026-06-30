@@ -13,6 +13,7 @@ import {
   Radiation,
   Package,
   ChevronLeft,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -225,6 +226,78 @@ export function HomePage() {
               })}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* CONFIGURATOR PROMO — Task BONUS-1 */}
+      <section className="bg-white py-16 lg:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.3 }}
+            variants={fadeUp}
+            transition={{ duration: 0.5 }}
+            className="relative overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-brand-50/40 px-6 py-10 sm:px-10 sm:py-12"
+          >
+            <div className="absolute -right-8 -top-8 hidden h-36 w-36 rounded-full bg-brand-200/40 blur-3xl sm:block" />
+            <div className="relative grid grid-cols-1 items-center gap-8 lg:grid-cols-2">
+              <div>
+                <Badge className="mb-3 bg-brand-700 text-white">
+                  {t("configHomeSectionBadge")}
+                </Badge>
+                <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+                  {t("configHomeSectionTitle")}
+                </h2>
+                <p className="mt-2 max-w-xl text-sm text-slate-600 sm:text-base">
+                  {t("configHomeSectionDesc")}
+                </p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-brand-700">
+                  {t("configHomeSectionBullets")}
+                </p>
+                <Button
+                  size="lg"
+                  onClick={() => navigate("configurateur")}
+                  className="mt-6"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  {t("configHomeSectionCta")}
+                  <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+                </Button>
+              </div>
+              {/* 3-step visual */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { icon: Armchair, label: t("configStep1") },
+                  { icon: ShieldCheck, label: t("configStep2") },
+                  { icon: Radiation, label: t("configStep3") },
+                ].map((s, i) => {
+                  const Icon = s.icon;
+                  return (
+                    <motion.div
+                      key={i}
+                      initial="hidden"
+                      whileInView="visible"
+                      viewport={{ once: true, amount: 0.3 }}
+                      variants={fadeUp}
+                      transition={{ duration: 0.4, delay: i * 0.1 }}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white/80 p-4 text-center shadow-sm"
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-[11px] font-semibold leading-tight text-slate-700">
+                        {s.label}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {i + 1}/3
+                      </span>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 

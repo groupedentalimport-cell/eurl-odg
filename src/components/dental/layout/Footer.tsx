@@ -39,6 +39,8 @@ export function Footer() {
             <h3 className="mb-3 text-sm font-semibold text-white">{t("quickLinks")}</h3>
             <ul className="space-y-2 text-sm">
               <li><button onClick={() => navigate("catalogue")} className="hover:text-brand-400">{t("catalogue")}</button></li>
+              <li><button onClick={() => navigate("configurateur")} className="hover:text-brand-400">{t("configuratorNav")}</button></li>
+              <li><button onClick={() => navigate("financement")} className="hover:text-brand-400">{t("financing")}</button></li>
               <li><button onClick={() => navigate("blog")} className="hover:text-brand-400">{t("blog")}</button></li>
               <li><button onClick={() => navigate("apropos")} className="hover:text-brand-400">{t("about")}</button></li>
               <li><button onClick={() => navigate("realisations")} className="hover:text-brand-400">{t("realisationsTitle")}</button></li>
