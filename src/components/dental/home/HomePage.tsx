@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/dental/catalogue/ProductCard";
 import { Newsletter } from "@/components/dental/newsletter/Newsletter";
+import { TestimonialsSection } from "@/components/dental/home/TestimonialsSection";
 import { useTranslation, type TKey } from "@/lib/i18n";
 import { useData } from "@/lib/data-service";
 import { useSettings } from "@/lib/settings-service";
@@ -293,6 +294,9 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* TESTIMONIALS */}
+      <TestimonialsSection />
 
       {/* CTA BANNER */}
       <section className="bg-white py-8">

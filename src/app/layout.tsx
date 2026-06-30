@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import { COMPANY } from "@/lib/types";
+import { Analytics } from "@vercel/analytics/react";
 
 const SITE_URL = "https://ouadah-dental-groupe.vercel.app";
 
@@ -44,10 +45,16 @@ export const metadata: Metadata = {
       "Importateur de matériel dentaire à Oran : fauteuils Silver Fox, autoclaves ICANCLAVE, radiologie OWANDY. Devis, service après-vente et formation.",
     images: [
       {
+        url: "/og.jpg",
+        width: 1024,
+        height: 1024,
+        alt: "OUADAH DENTAL GROUPE — Importateur de matériel dentaire à Oran",
+      },
+      {
         url: "/logo-odg.png",
         width: 2835,
         height: 1418,
-        alt: "OUADAH DENTAL GROUPE — Importateur de matériel dentaire à Oran",
+        alt: "OUADAH DENTAL GROUPE — logo officiel",
       },
     ],
   },
@@ -56,7 +63,7 @@ export const metadata: Metadata = {
     title: "OUADAH DENTAL GROUPE — Matériel dentaire | Oran, Algérie",
     description:
       "Importateur de matériel dentaire à Oran : Silver Fox, ICANCLAVE, OWANDY. Devis, SAV et formation.",
-    images: ["/logo-odg.png"],
+    images: ["/og.jpg"],
   },
   icons: {
     icon: [
@@ -71,6 +78,7 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
   },
+  manifest: "/manifest.json",
   category: "business",
   formatDetection: {
     telephone: true,
@@ -182,6 +190,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon.jpg" type="image/jpeg" sizes="any" />
         <link rel="apple-touch-icon" href="/logo.jpg" />
         <link rel="shortcut icon" href="/favicon.jpg" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0f766e" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -189,6 +199,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen bg-white font-sans antialiased">
         <Providers>{children}</Providers>
+        <Analytics />
+        {/* Service worker registration for PWA offline support */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`,
+          }}
+        />
       </body>
     </html>
   );

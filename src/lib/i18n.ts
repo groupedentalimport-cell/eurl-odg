@@ -675,6 +675,29 @@ export const T = {
   pcSectionRights: { fr: "Vos droits", ar: "حقوقك" },
   pcSectionCookies: { fr: "Cookies", ar: "ملفات تعريف الارتباط" },
   pcSectionChanges: { fr: "Modification de la politique", ar: "تعديل السياسة" },
+  // === Testimonials section (Task REVIEWS-1) ===
+  testimonialsTitle: { fr: "Ils nous font confiance", ar: "يثقون بنا" },
+  testimonialsSubtitle: { fr: "Ce que nos clients disent d'ODG", ar: "ماذا يقول عملاؤنا عن ODG" },
+  // === Realisations page (Task REVIEWS-1) ===
+  realisationsTitle: { fr: "Nos réalisations", ar: "إنجازاتنا" },
+  realisationsSubtitle: {
+    fr: "Cabinets dentaires équipés par ODG à travers l'Algérie",
+    ar: "عيادات الأسنان المجهزة من قبل ODG في جميع أنحاء الجزائر",
+  },
+  equipYourCabinet: { fr: "Vous voulez équiper votre cabinet ?", ar: "هل ترغب في تجهيز عيادتك؟" },
+  realisationsFilterAll: { fr: "Toutes les wilayas", ar: "كل الولايات" },
+  realisationsGalleryIntro: {
+    fr: "Découvrez quelques-uns des cabinets que nous avons équipés à travers le pays.",
+    ar: "اكتشف بعض العيادات التي قمنا بتجهيزها عبر البلاد.",
+  },
+  realisationsProductsInstalled: { fr: "Produits installés", ar: "المنتجات المركبة" },
+  realisationsViewProject: { fr: "Voir le projet", ar: "عرض المشروع" },
+  // === Global header search (Task SEARCH-1) ===
+  searchPlaceholder: { fr: "Rechercher un produit, un article...", ar: "البحث عن منتج، مقال..." },
+  searchNoResults: { fr: "Aucun résultat", ar: "لا توجد نتائج" },
+  searchProducts: { fr: "Produits", ar: "المنتجات" },
+  searchArticles: { fr: "Articles", ar: "المقالات" },
+  searchViewAll: { fr: "Voir tous les résultats", ar: "عرض كل النتائج" },
 } as const;
 
 export type TKey = keyof typeof T;

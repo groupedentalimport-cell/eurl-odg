@@ -80,6 +80,21 @@ export interface LocalizedText {
   ar: string;
 }
 
+// === Client testimonials (Task REVIEWS-1) ===
+// Hardcoded for now — a future enhancement may add a `testimonials` table
+// + admin panel. Each testimonial is a public review from an ODG client
+// (dentist, clinic, dental center) showing their satisfaction.
+export interface Testimonial {
+  id: string;
+  name: string;
+  // "Cabinet dentaire" | "Clinique" | "Centre dentaire"
+  establishment: string;
+  wilaya: string;
+  rating: number; // 1-5
+  text: { fr: string; ar: string };
+  photo?: string;
+}
+
 export interface Category {
   id: string;
   slug: string;

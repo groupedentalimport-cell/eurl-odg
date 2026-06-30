@@ -1,0 +1,53 @@
+{
+  "name": "OUADAH DENTAL GROUPE",
+  "short_name": "ODG",
+  "description": "Importateur de matériel dentaire à Oran, Algérie. Fauteuils Silver Fox, autoclaves ICANCLAVE, radiologie OWANDY.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f766e",
+  "orientation": "portrait-primary",
+  "lang": "fr",
+  "dir": "ltr",
+  "categories": ["business", "medical", "shopping"],
+  "icons": [
+    {
+      "src": "/logo-odg.png",
+      "sizes": "2835x1418",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Catalogue",
+      "short_name": "Catalogue",
+      "url": "/catalogue",
+      "description": "Voir tous les produits"
+    },
+    {
+      "name": "Demande de devis",
+      "short_name": "Devis",
+      "url": "/devis",
+      "description": "Demander un devis personnalisé"
+    },
+    {
+      "name": "Contact",
+      "short_name": "Contact",
+      "url": "/contact",
+      "description": "Contacter ODG"
+    }
+  ]
+}

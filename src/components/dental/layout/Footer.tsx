@@ -41,6 +41,7 @@ export function Footer() {
               <li><button onClick={() => navigate("catalogue")} className="hover:text-brand-400">{t("catalogue")}</button></li>
               <li><button onClick={() => navigate("blog")} className="hover:text-brand-400">{t("blog")}</button></li>
               <li><button onClick={() => navigate("apropos")} className="hover:text-brand-400">{t("about")}</button></li>
+              <li><button onClick={() => navigate("realisations")} className="hover:text-brand-400">{t("realisationsTitle")}</button></li>
               <li><button onClick={() => navigate("contact")} className="hover:text-brand-400">{t("contact")}</button></li>
               <li><button onClick={() => navigate("comparer")} className="hover:text-brand-400">{t("compare")}</button></li>
             </ul>
