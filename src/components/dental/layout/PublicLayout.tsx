@@ -2,6 +2,7 @@
 import dynamic from "next/dynamic";
 import { Header } from "@/components/dental/layout/Header";
 import { Footer } from "@/components/dental/layout/Footer";
+import { InstallPrompt } from "@/components/dental/pwa/InstallPrompt";
 import { useTranslation } from "@/lib/i18n";
 
 // Lazy-load the floating widgets (they're client-only, heavy-ish)
@@ -20,6 +21,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       <Footer />
       <ChatbotWidget />
       <WhatsAppWidget />
+      <InstallPrompt />
     </div>
   );
 }
