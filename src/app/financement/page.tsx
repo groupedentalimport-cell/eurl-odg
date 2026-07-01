@@ -1,16 +1,16 @@
 "use client";
 
 import { PublicLayout } from "@/components/dental/layout/PublicLayout";
-import { FinanceCalculator } from "@/components/dental/finance/FinanceCalculator";
+import { FinancementPage } from "@/components/dental/financement/FinancementPage";
 
 /**
  * /financement — interactive financing calculator route.
- * Wraps the FinanceCalculator in the public layout shell.
+ * Wraps the FinancementPage in the public layout shell.
  */
-export default function FinancementRoute() {
+export default function Page() {
   return (
     <PublicLayout>
-      <FinanceCalculator />
+      <FinancementPage />
     </PublicLayout>
   );
 }

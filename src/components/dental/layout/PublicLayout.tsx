@@ -8,6 +8,9 @@ import { useTranslation } from "@/lib/i18n";
 // Lazy-load the floating widgets (they're client-only, heavy-ish)
 const ChatbotWidget = dynamic(() => import("@/components/dental/chatbot/ChatbotWidget").then(m => m.ChatbotWidget), { ssr: false });
 const WhatsAppWidget = dynamic(() => import("@/components/dental/chatbot/WhatsAppWidget").then(m => m.WhatsAppWidget), { ssr: false });
+// Live chat with a human (BONUS-2) — separate from the AI chatbot.
+// Sits ABOVE the ChatbotWidget launcher (bottom-24) so they don't overlap.
+const LiveChatWidget = dynamic(() => import("@/components/dental/chatbot/LiveChatWidget").then(m => m.LiveChatWidget), { ssr: false });
 
 // Public layout shell — wraps Header + main content + Footer + floating widgets.
 // Used by all public-facing pages (home, catalogue, product, blog, contact, etc.).
@@ -21,6 +24,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       <Footer />
       <ChatbotWidget />
       <WhatsAppWidget />
+      <LiveChatWidget />
       <InstallPrompt />
     </div>
   );

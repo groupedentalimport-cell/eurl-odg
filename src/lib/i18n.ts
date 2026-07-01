@@ -754,6 +754,78 @@ export const T = {
     fr: "Location à usage professionnel — le matériel est restitué en fin de contrat.",
     ar: "إيجار مهني — تُعاد المعدات في نهاية العقد.",
   },
+  // === Financement calculator v2 (Task BONUS-4) ===
+  // Dedicated keys for the new /financement calculator (leasing + prêt bancaire).
+  // Reuses the brand teal palette and the standard amortization formula.
+  financementTitle: {
+    fr: "Calculateur de financement",
+    ar: "حاسبة التمويل",
+  },
+  financementSubtitle: {
+    fr: "Simulez votre crédit-bail ou prêt bancaire pour votre matériel dentaire — estimation immédiate des mensualités.",
+    ar: "حاكِ ائتمانك الإيجاري أو قرضك البنكي لمعدات طب الأسنان — تقدير فوري للأقساط الشهرية.",
+  },
+  financementLeasing: { fr: "Crédit-bail", ar: "ائتمان إيجاري" },
+  financementLeasingDesc: {
+    fr: "Location avec option d'achat — valeur résiduelle en fin de contrat.",
+    ar: "إيجار مع خيار الشراء — قيمة متبقية في نهاية العقد.",
+  },
+  financementLoan: { fr: "Prêt bancaire", ar: "قرض بنكي" },
+  financementLoanDesc: {
+    fr: "Prêt amortissable classique — vous êtes propriétaire dès le déblocage.",
+    ar: "قرض تقليدي مُسدَّد — تصبح مالكًا فور صرف الأموال.",
+  },
+  financementPrice: { fr: "Prix du matériel", ar: "سعر المعدات" },
+  financementDownPayment: { fr: "Apport initial", ar: "الدفعة الأولى" },
+  financementTerm: { fr: "Durée du financement", ar: "مدة التمويل" },
+  financementRate: { fr: "Taux d'intérêt annuel", ar: "سعر الفائدة السنوي" },
+  financementMonthly: { fr: "Mensualité estimée", ar: "القسط الشهري التقديري" },
+  financementTotalCost: { fr: "Coût total", ar: "التكلفة الإجمالية" },
+  financementTotalInterest: { fr: "Intérêts totaux", ar: "إجمالي الفوائد" },
+  financementResidual: { fr: "Valeur résiduelle", ar: "القيمة المتبقية" },
+  financementResidualHint: {
+    fr: "Typiquement 10 % du prix (option d'achat en fin de contrat).",
+    ar: "عادةً 10٪ من السعر (خيار الشراء في نهاية العقد).",
+  },
+  financementPrincipal: { fr: "Capital remboursé", ar: "رأس المال المسدد" },
+  financementAmountToFinance: { fr: "Montant à financer", ar: "المبلغ الممول" },
+  financementDownPaymentAmount: { fr: "Apport (DZD)", ar: "الدفعة (دج)" },
+  financementAmortization: { fr: "Tableau d'amortissement", ar: "جدول الإطفاء" },
+  financementAmortizationNote: {
+    fr: "Aperçu des 12 premiers mois",
+    ar: "معاينة أول 12 شهرًا",
+  },
+  financementMonth: { fr: "Mois", ar: "الشهر" },
+  financementBalance: { fr: "Solde restant", ar: "الرصيد المتبقي" },
+  financementInterestCol: { fr: "Intérêts", ar: "الفوائد" },
+  financementRequestQuote: {
+    fr: "Demander un devis avec financement",
+    ar: "طلب عرض سعر مع تمويل",
+  },
+  financementDisclaimer: {
+    fr: "Estimation à titre indicatif. Les conditions finales dépendent de l'organisme de financement.",
+    ar: "تقدير استرشادي. الشروط النهائية تعتمد على مؤسسة التمويل.",
+  },
+  financementSelectProduct: {
+    fr: "Sélectionner un produit",
+    ar: "اختيار منتج",
+  },
+  financementSelectProductHint: {
+    fr: "Pré-remplir le prix à partir d'un produit ODG.",
+    ar: "تعبئة السعر مسبقًا من منتج ODG.",
+  },
+  financementNoProduct: { fr: "Saisie manuelle", ar: "إدخال يدوي" },
+  financementMonths: { fr: "mois", ar: "شهر" },
+  financementPerMonth: { fr: "/ mois", ar: "/ شهر" },
+  financementBreakdown: { fr: "Répartition", ar: "التوزيع" },
+  financementLeasingNote: {
+    fr: "Le bien reste propriété du bailleur jusqu'à la levée de l'option d'achat.",
+    ar: "يبقى الممتلك ملكًا للمؤجر حتى ممارسة خيار الشراء.",
+  },
+  financementLoanNote: {
+    fr: "Vous devenez propriétaire dès le déblocage des fonds.",
+    ar: "تصبح مالكًا فور صرف الأموال.",
+  },
   // === Cabinet configurator (Task BONUS-1) ===
   configuratorTitle: { fr: "Configurateur de cabinet dentaire", ar: "مكوّن عيادة الأسنان" },
   configuratorSubtitle: {
@@ -954,6 +1026,200 @@ export const T = {
   portalStatutEnPrep: { fr: "En préparation", ar: "قيد التحضير" },
   portalStatutLivree: { fr: "Livrée", ar: "تم التسليم" },
   portalStatutAnnulee: { fr: "Annulée", ar: "ملغاة" },
+  // === Task BONUS-1 v3: simplified 3-step configurateur with hardcoded price ranges ===
+  configurateurTitle: {
+    fr: "Configurateur de cabinet",
+    ar: "مكوّن عيادة الأسنان",
+  },
+  configurateurSubtitle: {
+    fr: "Composez votre cabinet dentaire en 3 étapes : fauteuil, stérilisation et radiologie. Obtenez une estimation immédiate de votre investissement.",
+    ar: "ركّب عيادة الأسنان في 3 خطوات: كرسي، تعقيم وأشعة. احصل على تقدير فوري لاستثمارك.",
+  },
+  configSelect: { fr: "Sélectionner", ar: "اختيار" },
+  configSelected: { fr: "Sélectionné", ar: "مُختار" },
+  configSkip: { fr: "Passer cette étape", ar: "تجاوز هذه الخطوة" },
+  configTotalRange: {
+    fr: "Fourchette totale estimée",
+    ar: "النطاق الإجمالي المقدّر",
+  },
+  configCompare: { fr: "Comparer ces produits", ar: "مقارنة هذه المنتجات" },
+  configNoProducts: {
+    fr: "Aucun produit disponible dans cette catégorie pour le moment.",
+    ar: "لا توجد منتجات متاحة في هذه الفئة حالياً.",
+  },
+  configEstimateLabel: {
+    fr: "Estimation — prix final sur devis",
+    ar: "تقدير — السعر النهائي حسب العرض",
+  },
+  configSummaryStep: { fr: "Récapitulatif", ar: "الملخص" },
+  configYourCabinet: { fr: "Votre cabinet", ar: "عيادتك" },
+  configEdit: { fr: "Modifier", ar: "تعديل" },
+  configRestart: { fr: "Recommencer", ar: "إعادة البدء" },
+  configSeeOnDevis: {
+    fr: "Prix final communiqué sur devis par notre équipe commerciale.",
+    ar: "السعر النهائي يُبلَّغ عبر عرض السعر من فريقنا التجاري.",
+  },
+  // === Magic-link client portal — Task BONUS-3 (/portal route) ===
+  portalMagicNavClient: { fr: "Espace client", ar: "فضاء العميل" },
+  portalMagicLoginTitle: {
+    fr: "Accès à votre espace client",
+    ar: "الدخول إلى فضاء العميل",
+  },
+  portalMagicLoginDesc: {
+    fr: "Saisissez votre email : nous vous envoyons un lien sécurisé pour vous connecter.",
+    ar: "أدخل بريدك الإلكتروني: سنرسل لك رابطاً آمناً للدخول.",
+  },
+  portalMagicSendLink: { fr: "Recevoir le lien", ar: "استلم الرابط" },
+  portalMagicSending: { fr: "Envoi en cours…", ar: "جاري الإرسال…" },
+  portalMagicCheckEmail: {
+    fr: "Vérifiez votre boîte mail",
+    ar: "تحقق من بريدك الإلكتروني",
+  },
+  portalMagicCheckEmailDesc: {
+    fr: "Un lien de connexion a été envoyé. Cliquez dessus pour accéder à votre espace. Le lien est valable 15 minutes.",
+    ar: "تم إرسال رابط الدخول. اضغط عليه للوصول إلى فضائك. الرابط صالح لمدة 15 دقيقة.",
+  },
+  portalMagicVerifyTitle: {
+    fr: "Vérification du lien…",
+    ar: "جاري التحقق من الرابط…",
+  },
+  portalMagicVerifyFailed: {
+    fr: "Lien invalide ou expiré. Demandez un nouveau lien.",
+    ar: "الرابط غير صالح أو منتهي. اطلب رابطاً جديداً.",
+  },
+  portalMagicNoAccount: {
+    fr: "Aucun compte client trouvé avec cet email.",
+    ar: "لا يوجد حساب عميل بهذا البريد الإلكتروني.",
+  },
+  portalMagicResend: { fr: "Renvoyer un lien", ar: "إعادة إرسال رابط" },
+  portalMagicBackToForm: { fr: "Revenir au formulaire", ar: "العودة إلى النموذج" },
+  portalMagicWrongEmail: { fr: "Email invalide.", ar: "بريد إلكتروني غير صالح." },
+  // Interventions tab + columns (Task BONUS-3 — adds a 4th tab)
+  portalTabInterventions: { fr: "Mes interventions", ar: "تدخلاتي" },
+  portalColType: { fr: "Type", ar: "النوع" },
+  portalColDatePrevue: { fr: "Date prévue", ar: "التاريخ المتوقع" },
+  portalColTechnicien: { fr: "Technicien", ar: "الفني" },
+  portalColRapport: { fr: "Rapport", ar: "التقرير" },
+  portalNoInterventions: {
+    fr: "Aucune intervention pour le moment.",
+    ar: "لا توجد تدخلات حالياً.",
+  },
+  portalStatutPlanifie: { fr: "Planifiée", ar: "مجدولة" },
+  portalStatutEnCours: { fr: "En cours", ar: "قيد التنفيذ" },
+  portalStatutTermine: { fr: "Terminée", ar: "مكتملة" },
+  portalStatutAnnule: { fr: "Annulée", ar: "ملغاة" },
+  portalTypeLivraison: { fr: "Livraison", ar: "تسليم" },
+  portalTypeInstallation: { fr: "Installation", ar: "تركيب" },
+  portalTypeFormation: { fr: "Formation", ar: "تكوين" },
+  portalTypeMaintenancePreventive: {
+    fr: "Maintenance préventive",
+    ar: "صيانة وقائية",
+  },
+  portalTypeMaintenanceCurative: {
+    fr: "Maintenance curative",
+    ar: "صيانة علاجية",
+  },
+  portalDataError: {
+    fr: "Impossible de charger vos documents. Réessayez ultérieurement.",
+    ar: "تعذّر تحميل مستنداتك. حاول لاحقاً.",
+  },
+  portalDashboardSummary: {
+    fr: "Voici l'historique de vos échanges avec OUADAH DENTAL GROUPE.",
+    ar: "إليك سجل تعاملكم مع مجموعة أوضاح لطب الأسنان.",
+  },
+  // === Live Chat (real-time, human agent) — Task BONUS-2 ===
+  // Public widget
+  liveChatRTOpen: { fr: "Parler à un conseiller", ar: "تحدث مع مستشار" },
+  liveChatRTTitle: { fr: "Chat en direct — ODG", ar: "محادثة مباشرة — ODG" },
+  liveChatRTOnline: { fr: "En ligne", ar: "متصل" },
+  liveChatRTOffline: { fr: "Hors ligne", ar: "غير متصل" },
+  liveChatRTOnlineDesc: {
+    fr: "Un conseiller ODG est disponible. Discutez en direct.",
+    ar: "مستشار ODG متاح. تحدث مباشرة.",
+  },
+  liveChatRTOfflineDesc: {
+    fr: "Nous sommes actuellement hors ligne. Heures : Dim–Jeu 8h00–16h30. Laissez votre message, nous répondrons par email.",
+    ar: "نحن خارج الخدمة الآن. الأوقات: الأحد–الخميس 8:00–16:30. اترك رسالتك وسنرد عبر البريد الإلكتروني.",
+  },
+  liveChatRTClose: { fr: "Fermer", ar: "إغلاق" },
+  liveChatRTIntro: {
+    fr: "Pour démarrer, laissez-nous votre nom et votre email.",
+    ar: "للبدء، اترك لنا اسمك وبريدك الإلكتروني.",
+  },
+  liveChatRTName: { fr: "Votre nom", ar: "اسمك" },
+  liveChatRTEmail: { fr: "Votre email", ar: "بريدك الإلكتروني" },
+  liveChatRTPhone: { fr: "Téléphone (optionnel)", ar: "الهاتف (اختياري)" },
+  liveChatRTStart: { fr: "Démarrer la conversation", ar: "ابدأ المحادثة" },
+  liveChatRTStarting: { fr: "Connexion…", ar: "جاري الاتصال…" },
+  liveChatRTPlaceholder: { fr: "Écrivez votre message…", ar: "اكتب رسالتك…" },
+  liveChatRTSend: { fr: "Envoyer", ar: "إرسال" },
+  liveChatRTSending: { fr: "Envoi…", ar: "جاري الإرسال…" },
+  liveChatRTWaiting: {
+    fr: "Votre message a bien été envoyé. Un conseiller vous répondra dans quelques instants…",
+    ar: "تم إرسال رسالتك. سيجيبك مستشار خلال لحظات…",
+  },
+  liveChatRTError: {
+    fr: "Une erreur est survenue. Réessayez ou rafraîchissez la page.",
+    ar: "حدث خطأ. أعد المحاولة أو حدّث الصفحة.",
+  },
+  liveChatRTRequired: {
+    fr: "Veuillez remplir votre nom et votre email.",
+    ar: "يرجى ملء الاسم والبريد الإلكتروني.",
+  },
+  liveChatRTClosed: {
+    fr: "Cette conversation a été fermée par le conseiller. Merci d'avoir contacté ODG.",
+    ar: "تم إغلاق هذه المحادثة من قبل المستشار. شكرًا لتواصلك مع ODG.",
+  },
+  liveChatRTMessageLabel: { fr: "Votre message", ar: "رسالتك" },
+  liveChatRTOfflineSent: {
+    fr: "Message envoyé ! Nous vous répondrons par email à la reprise.",
+    ar: "تم إرسال الرسالة! سنرد عبر البريد الإلكتروني عند الاستئناف.",
+  },
+  liveChatRTOfflineFailed: {
+    fr: "Échec de l'envoi. Réessayez ou appelez-nous.",
+    ar: "فشل الإرسال. أعد المحاولة أو اتصل بنا.",
+  },
+  // Admin panel
+  liveChatAdminTitle: { fr: "Chat en direct", ar: "محادثة مباشرة" },
+  liveChatAdminDesc: {
+    fr: "Répondez en temps réel aux visiteurs du site.",
+    ar: "أجب زوار الموقع في الوقت الفعلي.",
+  },
+  liveChatAdminNoConv: {
+    fr: "Aucune conversation active. Les nouvelles demandes apparaîtront ici.",
+    ar: "لا توجد محادثات نشطة. الطلبات الجديدة ستظهر هنا.",
+  },
+  liveChatAdminSelectConv: {
+    fr: "Sélectionnez une conversation pour répondre.",
+    ar: "اختر محادثة للرد.",
+  },
+  liveChatAdminReply: { fr: "Votre réponse", ar: "ردك" },
+  liveChatAdminSend: { fr: "Répondre", ar: "أجب" },
+  liveChatAdminClose: { fr: "Clôturer", ar: "إغلاق" },
+  liveChatAdminClosed: { fr: "Clôturée", ar: "مغلقة" },
+  liveChatAdminWaiting: { fr: "En attente", ar: "في الانتظار" },
+  liveChatAdminActive: { fr: "Active", ar: "نشطة" },
+  liveChatAdminStatusAll: { fr: "Toutes", ar: "الكل" },
+  liveChatAdminAssignedToYou: { fr: "Vous", ar: "أنت" },
+  liveChatAdminUnassigned: { fr: "Non assignée", ar: "غير معينة" },
+  liveChatAdminVisitor: { fr: "Visiteur", ar: "زائر" },
+  liveChatAdminClosedToast: {
+    fr: "Conversation clôturée.",
+    ar: "تم إغلاق المحادثة.",
+  },
+  liveChatAdminReplyToast: {
+    fr: "Réponse envoyée.",
+    ar: "تم إرسال الرد.",
+  },
+  liveChatAdminRefresh: { fr: "Actualiser", ar: "تحديث" },
+  liveChatAdminLoadingConv: {
+    fr: "Chargement des conversations…",
+    ar: "جاري تحميل المحادثات…",
+  },
+  liveChatAdminDenied: {
+    fr: "Accès refusé. Rôles requis : manager, commercial ou super_admin.",
+    ar: "تم رفض الوصول. الأدوار المطلوبة: مدير، تجاري أو مسؤول عام.",
+  },
 } as const;
 
 export type TKey = keyof typeof T;

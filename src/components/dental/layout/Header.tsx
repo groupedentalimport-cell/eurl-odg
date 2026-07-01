@@ -11,6 +11,7 @@ import {
   FileText,
   ArrowRight,
   SlidersHorizontal,
+  User,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -452,6 +453,16 @@ export function Header() {
             )}
           </button>
 
+          {/* Espace client — magic-link portal (Task BONUS-3) */}
+          <button
+            onClick={() => go("portal")}
+            className="rounded-md p-2 text-slate-700 hover:bg-slate-100 hover:text-brand-700"
+            aria-label={t("portalMagicNavClient")}
+            title={t("portalMagicNavClient")}
+          >
+            <User className="h-5 w-5" />
+          </button>
+
           <LanguageSwitch />
 
           {/* Configurateur — prominent CTA (Task BONUS-1) */}
@@ -503,6 +514,16 @@ export function Header() {
             >
               <SlidersHorizontal className="h-4 w-4" />
               {t("configuratorNav")}
+            </Button>
+            {/* Espace client (mobile) — magic-link portal (Task BONUS-3) */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => go("portal")}
+            >
+              <User className="h-4 w-4" />
+              {t("portalMagicNavClient")}
             </Button>
             <Button size="sm" className="mt-2" onClick={() => go("contact")}>
               {t("requestQuote")}

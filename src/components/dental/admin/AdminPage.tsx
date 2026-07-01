@@ -5,7 +5,7 @@ import {
   Lock, LogOut, Loader2,
   LayoutDashboard, Mail, Package, FileText, Home, Info, Phone, Settings,
   Users, FileSpreadsheet, ShoppingCart, Wrench, Calendar, ShieldCheck, UserCog,
-  Newspaper,
+  Newspaper, Headphones,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ import { GarantiesPanel } from "./panels/GarantiesPanel";
 import { AdminUsersPanel } from "./panels/AdminUsersPanel";
 import { QuotesPanel } from "./panels/QuotesPanel";
 import { NewsletterPanel } from "./panels/NewsletterPanel";
+import { LiveChatPanel } from "./panels/LiveChatPanel";
 
 interface NavItem {
   id: string;
@@ -70,6 +71,7 @@ const NAV: NavSection[] = [
   {
     title: "Communication",
     items: [
+      { id: "live-chat", label: "Chat en direct", icon: Headphones, perm: "content.livechat", panel: LiveChatPanel },
       { id: "newsletter", label: "Newsletter", icon: Newspaper, perm: "content.newsletter", panel: NewsletterPanel },
     ],
   },
@@ -205,10 +207,20 @@ export function AdminPage() {
   // file). Visible to: super_admin + manager + editor. This matches
   // the role gate enforced server-side in
   // /api/admin/newsletter/send (requireRole manager+editor).
+  //
+  // The Live Chat item is the same idea — not in the can() matrix.
+  // Visible to: super_admin + manager + commercial (the two
+  // customer-facing roles + admin bypass). Matches the requireRole()
+  // gate in /api/admin/chat-live.
   const role = user?.role;
   const isVisible = (item: NavItem): boolean => {
     if (item.perm === "content.newsletter") {
       return role === "super_admin" || role === "manager" || role === "editor";
+    }
+    if (item.perm === "content.livechat") {
+      return (
+        role === "super_admin" || role === "manager" || role === "commercial"
+      );
     }
     return can(role, item.perm);
   };
