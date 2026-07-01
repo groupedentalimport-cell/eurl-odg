@@ -124,13 +124,14 @@ export function HomePage() {
             </div>
 
             {/* Trust row */}
-            <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-brand-100">
+            <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm text-brand-100">
               <span className="font-semibold uppercase tracking-wide text-brand-200">
                 {lang === "ar" ? "علاماتنا الحصرية:" : "Nos marques exclusives :"}
               </span>
-              {["Silver Fox", "ICANCLAVE", "OWANDY"].map((b) => (
-                <span key={b} className="font-bold text-white">
-                  {b}
+              {["Silver Fox", "ICANCLAVE", "OWANDY"].map((b, i) => (
+                <span key={b} className="flex items-center gap-x-4">
+                  {i > 0 && <span className="text-brand-400">•</span>}
+                  <span className="font-bold text-white">{b}</span>
                 </span>
               ))}
             </div>

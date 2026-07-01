@@ -21,3 +21,56 @@
 
 html { scroll-behavior: smooth; }
 body { background: var(--background); color: var(--foreground); }
+
+/* ============================================================
+   RTL (Right-To-Left) support for Arabic mode.
+   These rules ensure the layout doesn't break when the html
+   element has dir="rtl". Tailwind 4 handles most logical
+   properties automatically (ps-, pe-, ms-, me-, start-, end-),
+   but some physical properties need manual flipping.
+   ============================================================ */
+
+/* In RTL mode, flip gradients that use "from-...-to-..." left/right.
+   This prevents the hero gradient from looking reversed in Arabic. */
+html[dir="rtl"] .bg-gradient-to-r {
+  background-image: linear-gradient(to left, var(--tw-gradient-stops));
+}
+
+/* Ensure text-default is readable in both directions */
+html[dir="rtl"] body {
+  text-align: right;
+}
+
+/* Prevent overflowing flex items from causing horizontal scroll in RTL */
+html[dir="rtl"] .flex-wrap {
+  row-gap: 0.75rem;
+}
+
+/* Ensure brand names don't get concatenated without separators in RTL */
+html[dir="rtl"] .flex > span + span {
+  margin-inline-start: 0.5rem;
+}
+
+/* Force LTR for product codes, phone numbers, emails (always LTR even in Arabic) */
+.ltr-force,
+html[dir="rtl"] .ltr-force {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: embed !important;
+}
+
+/* Custom scrollbar for the long admin panels */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
