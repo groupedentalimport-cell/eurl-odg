@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { COMPANY } from "@/lib/types";
 import { Analytics } from "@vercel/analytics/react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const SITE_URL = "https://ouadah-dental-groupe.vercel.app";
 
@@ -198,7 +199,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen bg-white font-sans antialiased">
-        <Providers>{children}</Providers>
+        <ErrorBoundary>
+          <Providers>{children}</Providers>
+        </ErrorBoundary>
         <Analytics />
         {/* Service worker registration for PWA offline support */}
         <script
