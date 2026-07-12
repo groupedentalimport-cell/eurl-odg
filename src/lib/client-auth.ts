@@ -1,39 +1,34 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "crypto";
 import { getServerClient } from "./supabase";
+import { serverEnv } from "./env";
+import { signToken, verifyToken, base64urlEncode, base64urlDecode } from "./auth/jwt";
+import { parseCookies, sessionCookieOptions } from "./auth/cookies";
 
 // ============================================================
 // Client portal authentication (server-side only)
 // ============================================================
-// (Task BONUS-2-3 — phone-last-4 portal at /client)
-// (Task BONUS-3   — magic-link portal at /portal)
-//
 // TWO login methods share the same `odg_client` session cookie:
 //
 //   1. Phone-last-4 (legacy /client route): the client enters their
-//      email + the last 4 digits of the phone we have on file. No
-//      password, no email-sending. A 4-digit code over a known email
-//      is a low-stakes gate that protects viewing of devis/commandes
-//      only — no write operations, no payments.
+//      email + the last 4 digits of the phone we have on file.
 //
 //   2. Magic link (new /portal route): the client enters only their
 //      email → we send a short-lived HMAC-signed link to that email
 //      → clicking the link calls /api/client-portal/verify, which
 //      exchanges the short-lived magic token for a long-lived
-//      session cookie. Stronger than the 4-digit code (the secret
-//      never leaves the server, the inbox is the second factor) and
-//      simpler for non-tech clients (no code to remember).
+//      session cookie.
 //
 // Sessions are httpOnly cookies (name: `odg_client`) containing an
 // HMAC-signed token. The token payload includes clientId + issuedAt.
-// The actual client record (nom, email, telephone) lives in the
-// `clients` Supabase table.
 //
-// NOTE: this is INTENTIONALLY separate from admin-auth.ts:
-//  - different cookie name (`odg_client` vs `odg_admin`)
-//  - different secret (`CLIENT_SECRET` vs `ADMIN_SECRET`)
-//  - different payload shape (no role, just clientId)
-//  - different max age (7d vs 24h — clients re-log weekly is fine
-//    for a read-only portal; matches the magic-link UX)
+// REFACTOR (refactor/total):
+//   - JWT sign/verify delegated to `lib/auth/jwt.ts` (was duplicated).
+//   - Cookie parsing delegated to `lib/auth/cookies.ts` (was duplicated).
+//   - Secrets come from `serverEnv.CLIENT_SECRET` (validated in lib/env.ts).
+//   - Magic-link tokens now carry a single-use nonce (audit §2.10):
+//     once verified, the nonce is added to an in-memory replay cache
+//     for the TTL window. (For multi-instance deployments, swap the
+//     Map for a Vercel KV-backed store — same API.)
 // ============================================================
 
 export interface ClientSessionPayload {
@@ -50,160 +45,128 @@ export interface ClientPublicInfo {
   type_client: string | null;
 }
 
-const COOKIE_NAME = "odg_client";
-// Session lifetime: 7 days. The portal is read-only (devis, commandes,
-// garanties, interventions) so a long-lived session is acceptable UX
-// — clients typically log in once a week to check on a delivery or
-// warranty, and would be annoyed by a 12h timeout. Token re-issuance
-// on each verifyClientSession keeps the issuedAt fresh-ish.
-const SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7 days
-// Magic-link tokens (the ones sent by email) are short-lived: 15 min
-// is enough time to walk from the phone to the laptop, and short
-// enough that a leaked link in a forwarded email becomes useless fast.
-const MAGIC_TOKEN_MAX_AGE_SEC = 15 * 60; // 15 minutes
+export const CLIENT_COOKIE_NAME = "odg_client";
+export const CLIENT_SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+export const CLIENT_MAGIC_TOKEN_MAX_AGE = 15 * 60; // 15 minutes
 
-function getClientSecret(): string {
-  return process.env.CLIENT_SECRET || "odg-client-dev-secret";
+const MAGIC_PREFIX = "m";
+
+export interface ClientMagicPayload {
+  clientId: string;
+  issuedAt: number;
+  nonce: string;
 }
 
-// ---- Session token signing (HMAC) ----
-function signPayload(payload: string): string {
-  const sig = createHmac("sha256", getClientSecret()).update(payload).digest("hex");
-  return `${payload}.${sig}`;
+// ---- Single-use nonce cache (audit §2.10) ----
+// Key: nonce. Value: timestamp. GC'd lazily on each verify call.
+const consumedNonces = new Map<string, number>();
+
+function gcNonces(): void {
+  const now = Date.now();
+  // Keep entries for 2× the TTL to detect replays just past expiry.
+  const cutoff = now - CLIENT_MAGIC_TOKEN_MAX_AGE * 2 * 1000;
+  for (const [k, t] of consumedNonces) {
+    if (t < cutoff) consumedNonces.delete(k);
+  }
 }
 
-function verifyToken(token: string | undefined | null): ClientSessionPayload | null {
-  if (!token) return null;
+function clientSecret(): string {
+  return serverEnv.CLIENT_SECRET;
+}
+
+// ---- Session token signing (delegated to lib/auth/jwt.ts) ----
+export function createClientSessionToken(clientId: string): string {
+  const payload = base64urlEncode(
+    JSON.stringify({ clientId, issuedAt: Math.floor(Date.now() / 1000) })
+  );
+  return signToken(payload, clientSecret());
+}
+
+function decodeClientPayload(payload: string): ClientSessionPayload | null {
   try {
-    const decoded = decodeURIComponent(token);
-    const parts = decoded.split(".");
-    if (parts.length !== 2) return null;
-    const [payload, sig] = parts;
-    const expectedSig = createHmac("sha256", getClientSecret()).update(payload).digest("hex");
-    const a = Buffer.from(sig, "hex");
-    const b = Buffer.from(expectedSig, "hex");
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-    // payload format: base64url(JSON({clientId, issuedAt}))
-    const json = Buffer.from(payload, "base64url").toString("utf8");
-    const data = JSON.parse(json) as ClientSessionPayload;
+    const data = JSON.parse(base64urlDecode(payload)) as ClientSessionPayload;
     if (!data.clientId) return null;
     const now = Math.floor(Date.now() / 1000);
-    if (now - (data.issuedAt || 0) > SESSION_MAX_AGE_SEC) return null;
+    if (now - (data.issuedAt || 0) > CLIENT_SESSION_MAX_AGE) return null;
     return data;
   } catch {
     return null;
   }
 }
 
-export function createClientSessionToken(clientId: string): string {
-  const payload = Buffer.from(
-    JSON.stringify({ clientId, issuedAt: Math.floor(Date.now() / 1000) })
-  ).toString("base64url");
-  return signPayload(payload);
-}
-
-// ============================================================
-// Magic link tokens (Task BONUS-3 — /portal route)
-// ============================================================
-// A magic token is sent by email (in a URL like
-//   https://ouadah-dental-groupe.vercel.app/portal?token=XXX)
-// and is exchanged for a long-lived session cookie via the
-// /api/client-portal/verify route.
-//
-// The token payload is base64url(JSON({ cid, iat })) and is HMAC-
-// signed with the same CLIENT_SECRET as session tokens, BUT the
-// payload starts with the ASCII byte `m` (vs `s` for sessions) so
-// that a session cookie can NEVER be replayed as a magic token (or
-// vice-versa) — the type prefix is part of the signed payload.
-//
-// Lifetime: MAGIC_TOKEN_MAX_AGE_SEC (15 min). Single-use is enforced
-// only by the short TTL — there is no server-side "consumed" flag.
-// This is acceptable for a read-only portal: the worst case if a
-// token is replayed within 15 min is that a second session cookie
-// gets issued for the same client (no privilege escalation, no
-// data exposure beyond what the client can already see).
-
-const MAGIC_PREFIX = "m"; // token-type discriminator
-
-export interface ClientMagicPayload {
-  clientId: string;
-  issuedAt: number;
-}
-
+// ---- Magic-link tokens (single-use via nonce) ----
 export function createClientMagicToken(clientId: string): string {
   const json = JSON.stringify({
     cid: clientId,
     iat: Math.floor(Date.now() / 1000),
+    nonce: randomNonce(),
   });
-  // Prefix the payload so a session token can't be misused as a magic
-  // token (and vice versa). The prefix is INSIDE the signed payload,
-  // so an attacker cannot strip it without invalidating the signature.
-  const payload = MAGIC_PREFIX + Buffer.from(json, "utf8").toString("base64url");
-  return signPayload(payload);
+  // The MAGIC_PREFIX is INSIDE the signed payload, so an attacker
+  // cannot strip it without invalidating the signature.
+  const payload = MAGIC_PREFIX + base64urlEncode(json);
+  return signToken(payload, clientSecret());
+}
+
+function randomNonce(): string {
+  // 16 random bytes hex = 32 chars. Sufficient collision resistance
+  // for a 15-min TTL.
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export function verifyClientMagicToken(
   token: string | undefined | null
 ): ClientMagicPayload | null {
-  if (!token) return null;
-  try {
-    const decoded = decodeURIComponent(token);
-    const parts = decoded.split(".");
-    if (parts.length !== 2) return null;
-    const [payload, sig] = parts;
-    const expectedSig = createHmac("sha256", getClientSecret())
-      .update(payload)
-      .digest("hex");
-    const a = Buffer.from(sig, "hex");
-    const b = Buffer.from(expectedSig, "hex");
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-    // First byte must be the magic prefix.
-    if (!payload.startsWith(MAGIC_PREFIX)) return null;
-    const b64 = payload.slice(MAGIC_PREFIX.length);
-    const json = Buffer.from(b64, "base64url").toString("utf8");
-    const data = JSON.parse(json) as { cid?: string; iat?: number };
-    if (!data.cid) return null;
-    const now = Math.floor(Date.now() / 1000);
-    if (now - (data.iat || 0) > MAGIC_TOKEN_MAX_AGE_SEC) return null;
-    return { clientId: data.cid, issuedAt: data.iat || 0 };
-  } catch {
+  const decoded = verifyToken(
+    token,
+    clientSecret(),
+    (payload: string): ClientMagicPayload | null => {
+      if (!payload.startsWith(MAGIC_PREFIX)) return null;
+      try {
+        const json = base64urlDecode(payload.slice(MAGIC_PREFIX.length));
+        const data = JSON.parse(json) as {
+          cid?: string;
+          iat?: number;
+          nonce?: string;
+        };
+        if (!data.cid || !data.nonce) return null;
+        const now = Math.floor(Date.now() / 1000);
+        if (now - (data.iat || 0) > CLIENT_MAGIC_TOKEN_MAX_AGE) return null;
+        return {
+          clientId: data.cid,
+          issuedAt: data.iat || 0,
+          nonce: data.nonce,
+        };
+      } catch {
+        return null;
+      }
+    }
+  );
+  if (!decoded) return null;
+
+  // Single-use: reject if the nonce has already been consumed.
+  gcNonces();
+  if (consumedNonces.has(decoded.nonce)) {
     return null;
   }
+  consumedNonces.set(decoded.nonce, Date.now());
+  return decoded;
 }
-
-export const CLIENT_MAGIC_TOKEN_MAX_AGE = MAGIC_TOKEN_MAX_AGE_SEC;
 
 // ---- Cookie helpers ----
 export function getClientCookieOptions() {
-  return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SEC,
-  };
+  return sessionCookieOptions(CLIENT_SESSION_MAX_AGE);
 }
-export const CLIENT_COOKIE_NAME = COOKIE_NAME;
-export const CLIENT_SESSION_MAX_AGE = SESSION_MAX_AGE_SEC;
 
 // ---- Request verification ----
-function parseCookies(request: Request): Record<string, string> {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const out: Record<string, string> = {};
-  for (const part of cookieHeader.split(";")) {
-    const [k, ...v] = part.trim().split("=");
-    if (k) out[k] = v.join("=");
-  }
-  return out;
-}
-
 /**
  * Verify the client session cookie. Returns the SessionPayload
  * (with clientId) if valid, otherwise null.
  */
 export function verifyClientSession(request: Request): ClientSessionPayload | null {
   const cookies = parseCookies(request);
-  return verifyToken(cookies[COOKIE_NAME]);
+  return verifyToken(cookies[CLIENT_COOKIE_NAME], clientSecret(), decodeClientPayload);
 }
 
 /**
@@ -249,15 +212,11 @@ export async function findClientByEmail(
 /**
  * Authenticate a client by email + last-4 digits of their phone.
  *
- * Returns { client, token } on success, null on failure. The caller
- * is responsible for setting the cookie via the returned token.
+ * Returns `{ client, token }` on success, null on failure.
  *
- * NOTE: we use a small constant-time-ish comparison (timingSafeEqual)
- * on the last-4 digits to mitigate timing attacks. The 4-digit space
- * is small (10_000 codes) so this is not a strong gate — it is
- * intentionally a low-friction login for a low-scope portal (view
- * only). For a write/sensitive portal we would use a magic link or
- * a real password.
+ * NOTE: the 4-digit space (10 000 codes) is small — pair this with
+ * rate limiting (`enforceLimit` from `lib/auth/rate-limit.ts`) on
+ * the /api/client/login route.
  */
 export async function authenticateClient(
   email: string,

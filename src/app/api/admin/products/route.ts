@@ -1,56 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerClient } from "@/lib/supabase";
-import { verifyAdmin } from "@/lib/admin-auth";
+import { getServerClientOr500, tableMissingResponse } from "@/lib/supabase/server";
+import { isMissingTableError } from "@/lib/supabase/errors";
+import { requireRole } from "@/lib/admin-auth";
+import { PERMISSIONS } from "@/lib/auth/permissions";
 
+// ============================================================
+// REFACTOR (refactor/total — audit §2.5, §3.1, §3.2, §4.1)
+// ============================================================
 // Admin-only CRUD for the `products` table.
-// Uses the service role client (bypasses RLS). All routes gated behind verifyAdmin.
-
-function isMissingTableError(err: any): boolean {
-  // Detect ONLY genuine "table/relation does not exist" errors.
-  // Be careful NOT to match constraint-violation messages (which also contain
-  // the word "relation") — those are NOT missing-table errors.
-  const msg = (err?.message || err?.toString() || "").toLowerCase();
-  const code = String(err?.code || "");
-  // Postgres code 42P01 = undefined_table
-  if (code === "42p01") return true;
-  // PGRST205 = schema cache miss (table doesn't exist in PostgREST view)
-  if (code === "pgrst205") return true;
-  return (
-    msg.includes("could not find the table") ||
-    msg.includes("relation") && msg.includes("does not exist") ||
-    msg.includes("table") && msg.includes("does not exist") ||
-    msg.includes("schema cache") && msg.includes("does not exist")
-  );
-}
-
-function getClient() {
-  try {
-    return getServerClient();
-  } catch {
-    return null;
-  }
-}
+//   - RBAC: every handler now uses `requireRole(req, PERMISSIONS.products)`
+//     (editor-only) instead of the loose `verifyAdmin(req)` (any role).
+//   - Helpers: uses shared `getServerClientOr500()` + `tableMissingResponse()`
+//     + `isMissingTableError()` (no more inline duplicates).
+//   - Types: `body` typed as `Record<string, unknown>`, no more `any`.
+// ============================================================
 
 // Convert the form payload (camelCase) to Supabase column names (snake_case).
-// `id` is intentionally excluded — Supabase generates it via gen_random_uuid().
-//
-// Specs note: the admin panel parses the textarea into an array of
-// `{ label: { fr, ar }, value }` (matching the Product type). However, the
-// public `data-service.tsx` reads `specs` as a flat object `{ key: value }`.
-// To stay compatible with the public catalogue (which we cannot modify),
-// we collapse the array into an object keyed by the FR label. Duplicate
-// labels overwrite earlier entries — acceptable for typical spec sheets.
-function normalizeSpecs(specs: any): Record<string, string> {
+function normalizeSpecs(specs: unknown): Record<string, string> {
   if (!specs) return {};
   if (Array.isArray(specs)) {
     const obj: Record<string, string> = {};
     for (const it of specs) {
       if (it && typeof it === "object") {
         const label =
-          (typeof it.label === "object" && (it.label?.fr || it.label?.ar)) ||
-          (typeof it.label === "string" ? it.label : "") ||
+          (typeof (it as { label?: { fr?: string; ar?: string } }).label === "object" &&
+            ((it as { label?: { fr?: string; ar?: string } }).label?.fr ||
+              (it as { label?: { fr?: string; ar?: string } }).label?.ar)) ||
+          (typeof (it as { label?: string }).label === "string"
+            ? (it as { label?: string }).label
+            : "") ||
           "";
-        if (label) obj[label] = String(it.value ?? "");
+        if (label) obj[label] = String((it as { value?: unknown }).value ?? "");
       } else if (typeof it === "string" && it.trim()) {
         obj[it.trim()] = "";
       }
@@ -61,13 +41,18 @@ function normalizeSpecs(specs: any): Record<string, string> {
   return {};
 }
 
-function buildPayload(body: any) {
-  // Several columns in the products table are NOT NULL without defaults
-  // (nom_fr, nom_ar). Fill empty strings with a fallback so INSERT/UPDATE
-  // never fails with a 23502 not-null violation.
-  const nom_fr = body.nom_fr?.trim() || body.nom_ar?.trim() || body.slug || "Produit";
-  const nom_ar = body.nom_ar?.trim() || body.nom_fr?.trim() || body.slug || "منتج";
-  const payload: Record<string, unknown> = {
+function buildPayload(body: Record<string, unknown>) {
+  const nom_fr =
+    String(body.nom_fr ?? "").trim() ||
+    String(body.nom_ar ?? "").trim() ||
+    String(body.slug ?? "") ||
+    "Produit";
+  const nom_ar =
+    String(body.nom_ar ?? "").trim() ||
+    String(body.nom_fr ?? "").trim() ||
+    String(body.slug ?? "") ||
+    "منتج";
+  return {
     slug: body.slug ?? "",
     nom_fr,
     nom_ar,
@@ -85,28 +70,20 @@ function buildPayload(body: any) {
     ordre: Number.isFinite(Number(body.ordre)) ? Number(body.ordre) : 0,
     cible: Array.isArray(body.cible) ? body.cible : [],
   };
-  // NOTE: video_url column does NOT exist in the products table — omit it
-  // from the payload to avoid a PGRST204 'Could not find the video_url
-  // column' error. The admin form may still show the field (for future use)
-  // but the value is silently dropped here.
-  return payload;
 }
 
-// GET: list all products ordered by ordre (admin only)
+function forbidden(): NextResponse {
+  return NextResponse.json(
+    { error: "Forbidden. Rôle requis: editor (ou super_admin)." },
+    { status: 403 }
+  );
+}
+
+// GET: list all products ordered by ordre (editor only).
 export async function GET(request: NextRequest) {
-  if (!verifyAdmin(request)) {
-    return NextResponse.json(
-      { error: "Non autorisé. Session admin requise." },
-      { status: 401 }
-    );
-  }
-  const client = getClient();
-  if (!client) {
-    return NextResponse.json(
-      { error: "Supabase serveur non configuré. Vérifiez SUPABASE_SERVICE_ROLE_KEY." },
-      { status: 500 }
-    );
-  }
+  if (!requireRole(request, PERMISSIONS.products)) return forbidden();
+  const { client, error: clientError } = getServerClientOr500();
+  if (clientError) return clientError;
 
   try {
     const { data, error } = await client
@@ -115,54 +92,29 @@ export async function GET(request: NextRequest) {
       .order("ordre", { ascending: true });
 
     if (error) {
-      if (isMissingTableError(error)) {
-        return NextResponse.json(
-          {
-            error:
-              "La table 'products' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-            tableMissing: true,
-          },
-          { status: 501 }
-        );
-      }
+      if (isMissingTableError(error)) return tableMissingResponse("products");
       console.error("[admin/products] list error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
     return NextResponse.json({ products: data || [] });
-  } catch (e: any) {
-    if (isMissingTableError(e)) {
-      return NextResponse.json(
-        {
-          error:
-            "La table 'products' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-          tableMissing: true,
-        },
-        { status: 501 }
-      );
-    }
+  } catch (e) {
+    if (isMissingTableError(e as { code?: string; message?: string }))
+      return tableMissingResponse("products");
     console.error("[admin/products] exception:", e);
-    return NextResponse.json({ error: e?.message || "Erreur" }, { status: 500 });
-  }
-}
-
-// POST: create a product (admin only). Body = product fields (no id).
-export async function POST(request: NextRequest) {
-  if (!verifyAdmin(request)) {
     return NextResponse.json(
-      { error: "Non autorisé. Session admin requise." },
-      { status: 401 }
-    );
-  }
-  const client = getClient();
-  if (!client) {
-    return NextResponse.json(
-      { error: "Supabase serveur non configuré." },
+      { error: (e as Error)?.message || "Erreur" },
       { status: 500 }
     );
   }
+}
 
-  let body: any;
+// POST: create a product (editor only).
+export async function POST(request: NextRequest) {
+  if (!requireRole(request, PERMISSIONS.products)) return forbidden();
+  const { client, error: clientError } = getServerClientOr500();
+  if (clientError) return clientError;
+
+  let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
@@ -179,54 +131,29 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      if (isMissingTableError(error)) {
-        return NextResponse.json(
-          {
-            error:
-              "La table 'products' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-            tableMissing: true,
-          },
-          { status: 501 }
-        );
-      }
+      if (isMissingTableError(error)) return tableMissingResponse("products");
       console.error("[admin/products] insert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
     return NextResponse.json({ product: data });
-  } catch (e: any) {
-    if (isMissingTableError(e)) {
-      return NextResponse.json(
-        {
-          error:
-            "La table 'products' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-            tableMissing: true,
-        },
-        { status: 501 }
-      );
-    }
+  } catch (e) {
+    if (isMissingTableError(e as { code?: string; message?: string }))
+      return tableMissingResponse("products");
     console.error("[admin/products] exception:", e);
-    return NextResponse.json({ error: e?.message || "Erreur" }, { status: 500 });
-  }
-}
-
-// PUT: update a product (admin only). Body = { id, ...fields }.
-export async function PUT(request: NextRequest) {
-  if (!verifyAdmin(request)) {
     return NextResponse.json(
-      { error: "Non autorisé. Session admin requise." },
-      { status: 401 }
-    );
-  }
-  const client = getClient();
-  if (!client) {
-    return NextResponse.json(
-      { error: "Supabase serveur non configuré." },
+      { error: (e as Error)?.message || "Erreur" },
       { status: 500 }
     );
   }
+}
 
-  let body: any;
+// PUT: update a product (editor only). Body = { id, ...fields }.
+export async function PUT(request: NextRequest) {
+  if (!requireRole(request, PERMISSIONS.products)) return forbidden();
+  const { client, error: clientError } = getServerClientOr500();
+  if (clientError) return clientError;
+
+  let body: { id?: string } & Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
@@ -249,52 +176,27 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
-      if (isMissingTableError(error)) {
-        return NextResponse.json(
-          {
-            error:
-              "La table 'products' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-            tableMissing: true,
-          },
-          { status: 501 }
-        );
-      }
+      if (isMissingTableError(error)) return tableMissingResponse("products");
       console.error("[admin/products] update error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
     return NextResponse.json({ product: data });
-  } catch (e: any) {
-    if (isMissingTableError(e)) {
-      return NextResponse.json(
-        {
-          error:
-            "La table 'products' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-            tableMissing: true,
-        },
-        { status: 501 }
-      );
-    }
+  } catch (e) {
+    if (isMissingTableError(e as { code?: string; message?: string }))
+      return tableMissingResponse("products");
     console.error("[admin/products] exception:", e);
-    return NextResponse.json({ error: e?.message || "Erreur" }, { status: 500 });
-  }
-}
-
-// DELETE: remove a product (admin only). Query param: ?id=...
-export async function DELETE(request: NextRequest) {
-  if (!verifyAdmin(request)) {
     return NextResponse.json(
-      { error: "Non autorisé. Session admin requise." },
-      { status: 401 }
-    );
-  }
-  const client = getClient();
-  if (!client) {
-    return NextResponse.json(
-      { error: "Supabase serveur non configuré." },
+      { error: (e as Error)?.message || "Erreur" },
       { status: 500 }
     );
   }
+}
+
+// DELETE: remove a product (editor only). Query param: ?id=...
+export async function DELETE(request: NextRequest) {
+  if (!requireRole(request, PERMISSIONS.products)) return forbidden();
+  const { client, error: clientError } = getServerClientOr500();
+  if (clientError) return clientError;
 
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
@@ -305,33 +207,18 @@ export async function DELETE(request: NextRequest) {
   try {
     const { error } = await client.from("products").delete().eq("id", id);
     if (error) {
-      if (isMissingTableError(error)) {
-        return NextResponse.json(
-          {
-            error:
-              "La table 'products' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-            tableMissing: true,
-          },
-          { status: 501 }
-        );
-      }
+      if (isMissingTableError(error)) return tableMissingResponse("products");
       console.error("[admin/products] delete error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    if (isMissingTableError(e)) {
-      return NextResponse.json(
-        {
-          error:
-            "La table 'products' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-          tableMissing: true,
-        },
-        { status: 501 }
-      );
-    }
+  } catch (e) {
+    if (isMissingTableError(e as { code?: string; message?: string }))
+      return tableMissingResponse("products");
     console.error("[admin/products] exception:", e);
-    return NextResponse.json({ error: e?.message || "Erreur" }, { status: 500 });
+    return NextResponse.json(
+      { error: (e as Error)?.message || "Erreur" },
+      { status: 500 }
+    );
   }
 }

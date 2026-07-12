@@ -23,8 +23,18 @@ interface SessionState {
   refresh: () => void;
 }
 
-// Role permission matrix — mirrors the server-side requireRole().
-// super_admin bypasses everything.
+// Role permission matrix — mirrors the server-side `PERMISSIONS` in
+// lib/auth/permissions.ts. super_admin bypasses everything.
+//
+// REFACTOR (refactor/total — audit §1.6, §2.5):
+// The previous matrix was missing `content.newsletter` and
+// `content.livechat`, forcing AdminPage.tsx to re-implement `can()`
+// inline for those two items. They're now in the matrix, and
+// AdminPage's inline override has been removed.
+//
+// Keep this matrix IN SYNC with `lib/auth/permissions.ts` — they
+// MUST agree. A future iteration should generate one from the other
+// (or share a single file imported both server-side and client-side).
 export function can(role: AdminRole | undefined | null, action: string): boolean {
   if (!role) return false;
   if (role === "super_admin") return true;
@@ -37,20 +47,22 @@ export function can(role: AdminRole | undefined | null, action: string): boolean
     "content.home": ["editor"],
     "content.about": ["editor"],
     "content.contact": ["editor"],
+    "content.newsletter": ["manager", "editor"], // added — was missing
+    "content.livechat": ["manager"], // added — was missing
     // CRM
-    "crm.clients": ["manager", "commercial"],
-    "crm.devis": ["manager", "commercial", "accountant"],
+    "crm.clients": ["manager", "commercial", "accountant"],
+    "crm.devis": ["manager", "commercial"],
     "crm.devis.create": ["manager", "commercial"],
     "crm.devis.validate": ["manager"], // commercial can only draft
-    "crm.commandes": ["manager", "commercial", "accountant"],
+    "crm.commandes": ["manager", "commercial"],
     "crm.quotes": ["manager", "commercial"],
     // Operations
     "ops.interventions": ["manager", "technician"],
     "ops.techniciens": ["manager"],
-    "ops.maintenances": ["manager", "technician"],
+    "ops.maintenances": ["manager", "technician", "accountant"],
     "ops.garanties": ["manager", "technician", "accountant"],
     // Admin
-    "admin.users": [], // only super_admin (handled by bypass)
+    "admin.users": ["manager"], // manager can manage admin users (super_admin bypasses)
     "admin.dashboard": ["manager", "commercial", "technician", "editor", "accountant"],
   };
   const allowed = matrix[action];

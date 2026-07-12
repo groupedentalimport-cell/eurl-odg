@@ -1,5 +1,8 @@
-import { createHmac, timingSafeEqual, scryptSync, randomBytes } from "crypto";
+import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
 import { getServerClient } from "./supabase";
+import { serverEnv } from "./env";
+import { signToken, verifyToken, base64urlEncode, base64urlDecode } from "./auth/jwt";
+import { parseCookies, sessionCookieOptions } from "./auth/cookies";
 
 // ============================================================
 // Multi-role admin authentication (server-side only)
@@ -7,8 +10,19 @@ import { getServerClient } from "./supabase";
 // 6 roles: super_admin | manager | commercial | technician | editor | accountant
 // Sessions are httpOnly cookies containing an HMAC-signed token.
 // The token payload includes userId + role + issuedAt.
-// The actual user record (email, full_name, role) lives in the
-// `admin_users` Supabase table.
+// The actual user record (email, full_name, role, password_hash, salt)
+// lives in the `admin_users` Supabase table.
+//
+// REFACTOR (refactor/total):
+//   - Removed the hardcoded backdoor (audit §2.2). The fallback
+//     `admin@odg.dz / odg-admin-2026` super-admin login no longer
+//     exists — a real `admin_users` row is required.
+//   - Per-row random salt (audit §2.2). The `PASSWORD_SALT` constant
+//     is gone; each row stores its own `salt` alongside `password_hash`.
+//   - Secrets come from `serverEnv.ADMIN_SECRET` (validated in lib/env.ts).
+//   - JWT sign/verify delegated to `lib/auth/jwt.ts`.
+//   - Cookie parsing delegated to `lib/auth/cookies.ts`.
+// ============================================================
 
 export type AdminRole =
   | "super_admin"
@@ -41,27 +55,39 @@ export interface SessionPayload {
   issuedAt: number;
 }
 
-const COOKIE_NAME = "odg_admin";
-const SESSION_MAX_AGE_SEC = 60 * 60 * 24; // 24h
-const PASSWORD_SALT = "odg-salt-v1";
+export const ADMIN_COOKIE_NAME = "odg_admin";
+export const ADMIN_SESSION_MAX_AGE = 60 * 60 * 24; // 24h
 
-// Fallback env-based super admin (used when admin_users table is missing
-// or for dev without DB setup). Keeps backward compat with the old
-// ADMIN_PASSWORD env var.
-function getFallbackPassword(): string {
-  return process.env.ADMIN_PASSWORD || "odg-admin-2026";
-}
-function getAdminSecret(): string {
-  return process.env.ADMIN_SECRET || "odg-dev-secret-" + getFallbackPassword();
+function adminSecret(): string {
+  // serverEnv throws if ADMIN_SECRET is missing in production (see lib/env.ts).
+  return serverEnv.ADMIN_SECRET;
 }
 
-// ---- Password hashing (scrypt) ----
-export function hashPassword(plain: string): string {
-  return scryptSync(plain, PASSWORD_SALT, 64, { N: 16384, r: 8, p: 1 }).toString("hex");
+// ---- Password hashing (scrypt + per-row salt) ----
+/**
+ * Generate a 16-byte random salt (hex-encoded, 32 chars).
+ * Stored in `admin_users.salt` alongside `password_hash`.
+ */
+export function generateSalt(): string {
+  return randomBytes(16).toString("hex");
 }
-export function verifyPassword(plain: string, hash: string): boolean {
+
+/**
+ * Hash a password with `salt` using scrypt. Returns hex-encoded 64-byte hash.
+ *
+ * NOTE: this function is intentionally slow (N=16384) — do not call
+ * in hot loops. `verifyPassword` re-hashes the input with the stored
+ * salt and uses `timingSafeEqual` to compare.
+ */
+export function hashPassword(plain: string, salt: string): string {
+  if (!salt) throw new Error("hashPassword: salt is required (per-row).");
+  return scryptSync(plain, salt, 64, { N: 16384, r: 8, p: 1 }).toString("hex");
+}
+
+export function verifyPassword(plain: string, hash: string, salt: string): boolean {
   try {
-    const computed = hashPassword(plain);
+    if (!salt || !hash) return false;
+    const computed = hashPassword(plain, salt);
     const a = Buffer.from(computed, "hex");
     const b = Buffer.from(hash, "hex");
     if (a.length !== b.length) return false;
@@ -71,81 +97,52 @@ export function verifyPassword(plain: string, hash: string): boolean {
   }
 }
 
-// ---- Session token signing (HMAC) ----
-function signPayload(payload: string): string {
-  const sig = createHmac("sha256", getAdminSecret()).update(payload).digest("hex");
-  return `${payload}.${sig}`;
+// ---- Session token signing (delegated to lib/auth/jwt.ts) ----
+export function createSessionToken(userId: string, role: AdminRole): string {
+  const payload = base64urlEncode(
+    JSON.stringify({ userId, role, issuedAt: Math.floor(Date.now() / 1000) })
+  );
+  return signToken(payload, adminSecret());
 }
-function verifyToken(token: string | undefined | null): SessionPayload | null {
-  if (!token) return null;
+
+function decodeAdminPayload(payload: string): SessionPayload | null {
   try {
-    const decoded = decodeURIComponent(token);
-    const parts = decoded.split(".");
-    if (parts.length !== 2) return null;
-    const [payload, sig] = parts;
-    const expectedSig = createHmac("sha256", getAdminSecret()).update(payload).digest("hex");
-    const a = Buffer.from(sig, "hex");
-    const b = Buffer.from(expectedSig, "hex");
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-    // payload format: base64url(JSON({userId, role, issuedAt}))
-    const json = Buffer.from(payload, "base64url").toString("utf8");
-    const data = JSON.parse(json) as SessionPayload;
+    const data = JSON.parse(base64urlDecode(payload)) as SessionPayload;
     if (!data.userId || !data.role) return null;
+    if (!ALL_ROLES.includes(data.role)) return null;
     const now = Math.floor(Date.now() / 1000);
-    if (now - (data.issuedAt || 0) > SESSION_MAX_AGE_SEC) return null;
+    if (now - (data.issuedAt || 0) > ADMIN_SESSION_MAX_AGE) return null;
     return data;
   } catch {
     return null;
   }
 }
-export function createSessionToken(userId: string, role: AdminRole): string {
-  const payload = Buffer.from(
-    JSON.stringify({ userId, role, issuedAt: Math.floor(Date.now() / 1000) })
-  ).toString("base64url");
-  return signPayload(payload);
-}
 
 // ---- Cookie helpers ----
 export function getCookieOptions() {
-  return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SEC,
-  };
+  return sessionCookieOptions(ADMIN_SESSION_MAX_AGE);
 }
-export const ADMIN_COOKIE_NAME = COOKIE_NAME;
-export const ADMIN_SESSION_MAX_AGE = SESSION_MAX_AGE_SEC;
 
 // ---- Request verification ----
-function parseCookies(request: Request): Record<string, string> {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const out: Record<string, string> = {};
-  for (const part of cookieHeader.split(";")) {
-    const [k, ...v] = part.trim().split("=");
-    if (k) out[k] = v.join("=");
-  }
-  return out;
-}
-
 /**
  * Verify the admin session cookie. Returns the SessionPayload (with role)
- * if valid, otherwise null.
- *
- * Falls back to the legacy env-based password ONLY if the admin_users table
- * is missing — this keeps the site working during the CRM migration.
+ * if valid, otherwise null. Replaces the deleted `parseCookies` local copy.
  */
 export function verifyAdmin(request: Request): SessionPayload | null {
   const cookies = parseCookies(request);
-  return verifyToken(cookies[COOKIE_NAME]);
+  return verifyToken(cookies[ADMIN_COOKIE_NAME], adminSecret(), decodeAdminPayload);
 }
 
 /**
  * Require a specific set of roles. Returns the SessionPayload if the user
  * has one of the allowed roles, otherwise null (caller should return 403).
+ * `super_admin` always passes.
  *
- * super_admin always passes (full access).
+ * Pairs with the centralised permission matrix in `lib/auth/permissions.ts`:
+ *
+ *   import { PERMISSIONS } from "@/lib/auth/permissions";
+ *   const session = requireRole(req, PERMISSIONS.products);
+ *   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
  */
 export function requireRole(
   request: Request,
@@ -183,44 +180,48 @@ export async function findAdminUserByEmail(email: string): Promise<AdminUser | n
 
 /**
  * Authenticate by email + password against the admin_users table.
- * Falls back to the env-based super admin if the table is missing
- * (email ignored, uses ADMIN_PASSWORD env var, role = super_admin).
  *
- * Returns { user, token } on success, null on failure.
+ * REFACTOR: the legacy fallback (env-based `admin@odg.dz / odg-admin-2026`
+ * super-admin) has been REMOVED. A real `admin_users` row is required,
+ * with `password_hash` AND `salt` columns. To bootstrap the first admin,
+ * run `supabase-base-schema.sql` (which inserts a temporary super-admin
+ * with a randomly-generated password printed to the SQL output) and
+ * change it immediately from the admin UI.
+ *
+ * Returns `{ user, token }` on success, `null` on failure.
  */
 export async function authenticateAdmin(
   email: string,
   password: string
-): Promise<{ user: AdminUser; token: string } | { fallback: true; token: string } | null> {
-  // Try DB first
+): Promise<{ user: AdminUser; token: string } | null> {
   const user = await findAdminUserByEmail(email);
-  if (user) {
-    // Fetch password_hash
-    let client;
-    try {
-      client = getServerClient();
-    } catch {
-      return null;
-    }
-    if (!client) return null;
-    const { data } = await client
-      .from("admin_users")
-      .select("password_hash")
-      .eq("id", user.id)
-      .single();
-    if (data?.password_hash && verifyPassword(password, data.password_hash)) {
-      const token = createSessionToken(user.id, user.role);
-      return { user, token };
-    }
+  if (!user) return null;
+
+  let client;
+  try {
+    client = getServerClient();
+  } catch {
+    return null;
+  }
+  if (!client) return null;
+
+  const { data } = await client
+    .from("admin_users")
+    .select("password_hash, salt")
+    .eq("id", user.id)
+    .single();
+
+  // Backward-compat: rows created before this refactor may not have a
+  // `salt` column. We refuse login for such rows — the operator must
+  // reset the password via the new SQL migration (supabase-base-schema.sql).
+  if (!data?.password_hash || !data?.salt) {
     return null;
   }
 
-  // Fallback: env-based super admin (only if email is empty or matches the
-  // legacy "admin@odg.dz"). This keeps the site working before the SQL is run.
-  if ((!email || email === "admin@odg.dz") && password === getFallbackPassword()) {
-    const token = createSessionToken("legacy-super-admin", "super_admin");
-    return { fallback: true, token };
+  if (!verifyPassword(password, data.password_hash, data.salt)) {
+    return null;
   }
 
-  return null;
+  const token = createSessionToken(user.id, user.role);
+  return { user, token };
 }

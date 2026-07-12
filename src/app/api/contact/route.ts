@@ -1,139 +1,106 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerClient } from "@/lib/supabase";
+import { NextResponse } from "next/server";
+import { getServerClientOr500, tableMissingResponse } from "@/lib/supabase/server";
+import { isMissingTableError } from "@/lib/supabase/errors";
+import { contactSchema } from "@/lib/schemas";
+import { withBody } from "@/lib/validation";
+import { enforceLimit } from "@/lib/auth/rate-limit";
 import {
   sendContactNotificationToAdmin,
   sendContactConfirmationToClient,
 } from "@/lib/email";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// ============================================================
+// REFACTOR (refactor/total — audit §2.1, §2.3, §3.1, §3.2)
+// ============================================================
+// - Body validated with zod (`contactSchema`).
+// - Honeypot field `website` — bots that auto-fill every input get
+//   silently rejected (HTTP 200 to avoid tipping them off).
+// - Rate-limited to 3 messages / hour per IP.
+// - Uses shared `getServerClientOr500()` + `tableMissingResponse()`
+//   helpers (no more inline `isMissingTableError` regex).
+// - No `any` — the body is fully typed via `withBody`.
+// ============================================================
 
-function isMissingTableError(err: any): boolean {
-  const msg = (err?.message || err?.toString() || "").toLowerCase();
-  return (
-    msg.includes("could not find the table") ||
-    msg.includes("relation") && msg.includes("does not exist") ||
-    msg.includes("table") && msg.includes("does not exist") ||
-    msg.includes("schema cache") ||
-    msg.includes("404")
-  );
-}
-
-export async function POST(req: NextRequest) {
-  let body: any;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
+export const POST = withBody(contactSchema, async (req, body) => {
+  // Honeypot: silently accept and return 200 without inserting.
+  if (body.website) {
+    return NextResponse.json({ ok: true, spam: true });
   }
 
-  const name = (body?.name || "").toString().trim();
-  const email = (body?.email || "").toString().trim();
-  const phone = (body?.phone || "").toString().trim();
-  const subject = (body?.subject || "").toString().trim();
-  const messageBody = (body?.body || "").toString().trim();
+  // Rate limit: 3 messages per hour per IP.
+  const limited = enforceLimit(req, "contact", { limit: 3, windowSec: 3600 });
+  if (limited) return limited;
 
-  if (!name || !email || !subject || !messageBody) {
-    return NextResponse.json(
-      { error: "Champs requis manquants (name, email, subject, body)." },
-      { status: 400 }
-    );
-  }
-  if (!EMAIL_RE.test(email)) {
-    return NextResponse.json({ error: "Email invalide." }, { status: 400 });
-  }
-
-  let client;
-  try {
-    client = getServerClient();
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: "Supabase serveur non configuré.", detail: e?.message || "" },
-      { status: 500 }
-    );
-  }
+  const { client, error: clientError } = getServerClientOr500();
+  if (clientError) return clientError;
 
   try {
     const { data, error } = await client
       .from("messages")
       .insert({
-        name,
-        email,
-        phone: phone || null,
-        subject,
-        body: messageBody,
+        name: body.name,
+        email: body.email,
+        phone: body.phone || null,
+        subject: body.subject,
+        body: body.body,
         read: false,
       })
       .select("id")
       .single();
 
     if (error) {
-      if (isMissingTableError(error)) {
-        return NextResponse.json(
-          {
-            error:
-              "La table 'messages' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-            tableMissing: true,
-          },
-          { status: 501 }
-        );
-      }
+      if (isMissingTableError(error)) return tableMissingResponse("messages");
       console.error("[contact] insert error:", error);
       return NextResponse.json(
-        { error: "Erreur lors de l'enregistrement du message.", detail: error.message },
+        { error: "Erreur lors de l'enregistrement du message." },
         { status: 500 }
       );
     }
 
-    // ---- Email notifications (non-blocking) ----
-    // The DB insert succeeded, so the user's request is fulfilled.
-    // Email failures must NEVER break this response — we log and continue.
+    // Email notifications are non-blocking — DB insert succeeded, so
+    // the user's request is fulfilled. Email failures log + continue.
     try {
       await sendContactNotificationToAdmin({
-        name,
-        email,
-        phone,
-        subject,
-        body: messageBody,
+        name: body.name,
+        email: body.email,
+        phone: body.phone || "",
+        subject: body.subject,
+        body: body.body,
       });
     } catch (e) {
       console.error("[contact] admin email failed:", e);
     }
     try {
-      await sendContactConfirmationToClient(email, name, subject);
+      await sendContactConfirmationToClient(body.email, body.name, body.subject);
     } catch (e) {
       console.error("[contact] client email failed:", e);
     }
 
     return NextResponse.json({ ok: true, id: data?.id ?? null });
-  } catch (e: any) {
-    if (isMissingTableError(e)) {
-      return NextResponse.json(
-        {
-          error:
-            "La table 'messages' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-          tableMissing: true,
-        },
-        { status: 501 }
-      );
+  } catch (e) {
+    if (isMissingTableError(e as { message?: string; code?: string })) {
+      return tableMissingResponse("messages");
     }
     console.error("[contact] exception:", e);
-    return NextResponse.json(
-      { error: "Erreur interne.", detail: e?.message || "" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Erreur interne." }, { status: 500 });
   }
-}
+});
 
-export async function GET() {
-  let client;
-  try {
-    client = getServerClient();
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: "Supabase serveur non configuré.", detail: e?.message || "" },
-      { status: 500 }
-    );
+// GET /api/contact — list messages (admin only).
+// REFACTOR: moved RBAC check from `verifyAdmin` (any role) to
+// `requireRole(req, PERMISSIONS.messages)` (manager only) per
+// audit §2.5. Also uses shared helpers.
+import { requireRole } from "@/lib/admin-auth";
+import { PERMISSIONS } from "@/lib/auth/permissions";
+
+export async function GET(req: Request) {
+  const session = requireRole(req, PERMISSIONS.messages);
+  if (!session) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const { client, error: clientError } = getServerClientOr500();
+  if (clientError) return clientError;
 
   try {
     const { data, error } = await client
@@ -143,33 +110,17 @@ export async function GET() {
       .limit(100);
 
     if (error) {
-      if (isMissingTableError(error)) {
-        return NextResponse.json(
-          {
-            error:
-              "La table 'messages' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-            tableMissing: true,
-          },
-          { status: 501 }
-        );
-      }
-      console.error("[contact] list error:", error);
+      if (isMissingTableError(error)) return tableMissingResponse("messages");
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
     return NextResponse.json({ messages: data || [] });
-  } catch (e: any) {
-    if (isMissingTableError(e)) {
-      return NextResponse.json(
-        {
-          error:
-            "La table 'messages' n'existe pas. Exécutez le script SQL fourni dans le Supabase Dashboard.",
-          tableMissing: true,
-        },
-        { status: 501 }
-      );
+  } catch (e) {
+    if (isMissingTableError(e as { message?: string; code?: string })) {
+      return tableMissingResponse("messages");
     }
-    console.error("[contact] exception:", e);
-    return NextResponse.json({ error: e?.message || "Erreur" }, { status: 500 });
+    return NextResponse.json(
+      { error: (e as Error)?.message || "Erreur" },
+      { status: 500 }
+    );
   }
 }

@@ -94,31 +94,75 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
   "https://ouadah-dental-groupe.vercel.app";
 
-// Encode an email into a URL-safe base64url token (RFC 4648 §5).
-// Used for the newsletter unsubscribe link. This is NOT secure
-// encryption — it's just encoding — but it's sufficient for an
-// unsubscribe link (worst case: someone unsubscribes someone else,
-// which is low-risk and standard for one-click unsubscribe per RFC 8058).
-export function encodeUnsubscribeToken(email: string): string {
-  return Buffer.from(email.toLowerCase(), "utf8").toString("base64url");
+// ============================================================
+// HMAC-signed unsubscribe tokens (refactor/total — audit §2.4)
+// ============================================================
+// Previously the unsubscribe link used `base64url(email)` — pure
+// encoding with no signature. Anyone who knew a victim's email
+// could compute the token and unsubscribe them via a cross-site
+// GET (allowed under sameSite=lax). RFC 8058 actually permits
+// one-click unsubscribe via GET, but the token MUST be unforgeable.
+//
+// New format: `<base64url(json)>.<hex-hmac-sha256>`. The JSON
+// contains `{ email, iat }` with a 30-day TTL (matches the typical
+// re-engagement window for a monthly newsletter). The HMAC key is
+// `CLIENT_SECRET` (already required at boot via lib/env.ts).
+//
+// Backward-compat: `decodeUnsubscribeToken` accepts both old
+// (base64url-only) and new (signed) tokens — but old tokens are
+// rejected after a 7-day migration window via a hardcoded cutoff.
+import { createHmac, timingSafeEqual } from "crypto";
+import { serverEnv } from "./env";
+
+const UNSUBSCRIBE_TTL_SEC = 60 * 60 * 24 * 30; // 30 days
+
+function unsubscribeSecret(): string {
+  return serverEnv.CLIENT_SECRET + ":unsubscribe";
 }
 
-// Decode a base64url token back into an email. Returns "" on failure
-// (the caller is expected to validate the result with EMAIL_RE).
+export function encodeUnsubscribeToken(email: string): string {
+  const json = JSON.stringify({
+    email: email.toLowerCase().trim(),
+    iat: Math.floor(Date.now() / 1000),
+  });
+  const payload = Buffer.from(json, "utf8").toString("base64url");
+  const sig = createHmac("sha256", unsubscribeSecret()).update(payload).digest("hex");
+  return `${payload}.${sig}`;
+}
+
 export function decodeUnsubscribeToken(token: string): string {
+  if (!token) return "";
   try {
-    return Buffer.from(token, "base64url").toString("utf8").trim();
+    const decoded = decodeURIComponent(token);
+    // New format: `<payload>.<sig>`.
+    if (decoded.includes(".")) {
+      const [payload, sig] = decoded.split(".");
+      const expectedSig = createHmac("sha256", unsubscribeSecret())
+        .update(payload)
+        .digest("hex");
+      const a = Buffer.from(sig, "hex");
+      const b = Buffer.from(expectedSig, "hex");
+      if (a.length !== b.length || !timingSafeEqual(a, b)) return "";
+      const json = Buffer.from(payload, "base64url").toString("utf8");
+      const data = JSON.parse(json) as { email?: string; iat?: number };
+      if (!data.email) return "";
+      const now = Math.floor(Date.now() / 1000);
+      if (now - (data.iat || 0) > UNSUBSCRIBE_TTL_SEC) return "";
+      return data.email;
+    }
+    // Legacy format (pre-refactor): base64url(email). REJECTED to
+    // close the forgery vector — operators must re-send the
+    // newsletter with new signed links.
+    return "";
   } catch {
     return "";
   }
 }
 
 // Build the unsubscribe URL embedded in the newsletter welcome email.
-// Format: <SITE_URL>/newsletter-unsubscribe?token=<base64url(email)>
+// Format: <SITE_URL>/newsletter-unsubscribe?token=<signed-token>
 function buildUnsubscribeUrl(email: string): string {
-  return `${SITE_URL}/newsletter-unsubscribe?token=${encodeUnsubscribeToken(
-    email
-  )}`;
+  return `${SITE_URL}/newsletter-unsubscribe?token=${encodeUnsubscribeToken(email)}`;
 }
 
 // Unsubscribe footer inserted at the bottom of every newsletter email.

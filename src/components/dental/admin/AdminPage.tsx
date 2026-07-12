@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
-  Lock, LogOut, Loader2,
+  LogOut, Loader2,
   LayoutDashboard, Mail, Package, FileText, Home, Info, Phone, Settings,
   Users, FileSpreadsheet, ShoppingCart, Wrench, Calendar, ShieldCheck, UserCog,
   Newspaper, Headphones,
@@ -13,28 +14,32 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTranslation } from "@/lib/i18n";
 import { useAdminSession, can } from "@/hooks/useAdminSession";
-import { toast } from "@/components/ui/sonner";
 
-// Panels
-import { DashboardPanel } from "./panels/DashboardPanel";
-import { MessagesPanel } from "./panels/MessagesPanel";
-import { ProductsPanel } from "./panels/ProductsPanel";
-import { ArticlesPanel } from "./panels/ArticlesPanel";
-import { CategoriesPanel } from "./panels/CategoriesPanel";
-import { HomeSettingsPanel } from "./panels/HomeSettingsPanel";
-import { AboutSettingsPanel } from "./panels/AboutSettingsPanel";
-import { ContactSettingsPanel } from "./panels/ContactSettingsPanel";
-import { ClientsPanel } from "./panels/ClientsPanel";
-import { DevisPanel } from "./panels/DevisPanel";
-import { CommandesPanel } from "./panels/CommandesPanel";
-import { InterventionsPanel } from "./panels/InterventionsPanel";
-import { TechniciensPanel } from "./panels/TechniciensPanel";
-import { MaintenancesPanel } from "./panels/MaintenancesPanel";
-import { GarantiesPanel } from "./panels/GarantiesPanel";
-import { AdminUsersPanel } from "./panels/AdminUsersPanel";
-import { QuotesPanel } from "./panels/QuotesPanel";
-import { NewsletterPanel } from "./panels/NewsletterPanel";
-import { LiveChatPanel } from "./panels/LiveChatPanel";
+// REFACTOR (refactor/total — audit §5.2)
+// All 19 admin panels are now lazy-loaded via `next/dynamic`. The
+// previous static imports bundled every panel (~13 000 LOC of JSX)
+// into the admin chunk even though only one panel is mounted at a
+// time. Now Next.js code-splits each panel into its own chunk and
+// fetches it on first activation.
+const DashboardPanel = dynamic(() => import("./panels/DashboardPanel").then(m => ({ default: m.DashboardPanel })));
+const MessagesPanel = dynamic(() => import("./panels/MessagesPanel").then(m => ({ default: m.MessagesPanel })));
+const ProductsPanel = dynamic(() => import("./panels/ProductsPanel").then(m => ({ default: m.ProductsPanel })));
+const ArticlesPanel = dynamic(() => import("./panels/ArticlesPanel").then(m => ({ default: m.ArticlesPanel })));
+const CategoriesPanel = dynamic(() => import("./panels/CategoriesPanel").then(m => ({ default: m.CategoriesPanel })));
+const HomeSettingsPanel = dynamic(() => import("./panels/HomeSettingsPanel").then(m => ({ default: m.HomeSettingsPanel })));
+const AboutSettingsPanel = dynamic(() => import("./panels/AboutSettingsPanel").then(m => ({ default: m.AboutSettingsPanel })));
+const ContactSettingsPanel = dynamic(() => import("./panels/ContactSettingsPanel").then(m => ({ default: m.ContactSettingsPanel })));
+const ClientsPanel = dynamic(() => import("./panels/ClientsPanel").then(m => ({ default: m.ClientsPanel })));
+const DevisPanel = dynamic(() => import("./panels/DevisPanel").then(m => ({ default: m.DevisPanel })));
+const CommandesPanel = dynamic(() => import("./panels/CommandesPanel").then(m => ({ default: m.CommandesPanel })));
+const InterventionsPanel = dynamic(() => import("./panels/InterventionsPanel").then(m => ({ default: m.InterventionsPanel })));
+const TechniciensPanel = dynamic(() => import("./panels/TechniciensPanel").then(m => ({ default: m.TechniciensPanel })));
+const MaintenancesPanel = dynamic(() => import("./panels/MaintenancesPanel").then(m => ({ default: m.MaintenancesPanel })));
+const GarantiesPanel = dynamic(() => import("./panels/GarantiesPanel").then(m => ({ default: m.GarantiesPanel })));
+const AdminUsersPanel = dynamic(() => import("./panels/AdminUsersPanel").then(m => ({ default: m.AdminUsersPanel })));
+const QuotesPanel = dynamic(() => import("./panels/QuotesPanel").then(m => ({ default: m.QuotesPanel })));
+const NewsletterPanel = dynamic(() => import("./panels/NewsletterPanel").then(m => ({ default: m.NewsletterPanel })));
+const LiveChatPanel = dynamic(() => import("./panels/LiveChatPanel").then(m => ({ default: m.LiveChatPanel })), { loading: () => <PanelLoader /> });
 
 interface NavItem {
   id: string;
@@ -99,6 +104,14 @@ const NAV: NavSection[] = [
     ],
   },
 ];
+
+function PanelLoader() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <Loader2 className="h-5 w-5 animate-spin text-brand-700" />
+    </div>
+  );
+}
 
 export function AdminPage() {
   const { lang, t } = useTranslation();
@@ -190,8 +203,12 @@ export function AdminPage() {
                 <Button type="submit" className="w-full bg-brand-700 hover:bg-brand-800" disabled={loginLoading || !password}>
                   {loginLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("sending")}</> : t("login")}
                 </Button>
+                {/* REFACTOR (refactor/total — audit §2.2): removed hardcoded default credentials.
+                    Operators must create the first super-admin via the SQL migration
+                    (supabase-base-schema.sql inserts a temporary super-admin with a
+                    randomly-generated password printed to the SQL output). */}
                 <p className="text-center text-xs text-slate-400">
-                  Compte par défaut : admin@odg.dz / odg-admin-2026
+                  Accès réservé aux administrateurs autorisés.
                 </p>
               </form>
             </CardContent>
@@ -201,29 +218,12 @@ export function AdminPage() {
     );
   }
 
-  // ---- Filter nav by role ----
-  // The Newsletter item uses an INLINE permission check (it isn't in
-  // the can() matrix in useAdminSession.ts since we can't modify that
-  // file). Visible to: super_admin + manager + editor. This matches
-  // the role gate enforced server-side in
-  // /api/admin/newsletter/send (requireRole manager+editor).
-  //
-  // The Live Chat item is the same idea — not in the can() matrix.
-  // Visible to: super_admin + manager + commercial (the two
-  // customer-facing roles + admin bypass). Matches the requireRole()
-  // gate in /api/admin/chat-live.
+  // ---- Filter nav by role (refactor/total — audit §1.6, §2.5) ----
+  // REFACTOR: the inline permission overrides for newsletter & livechat
+  // have been removed. The permission matrix is now the SINGLE source of
+  // truth in `lib/auth/permissions.ts`, shared between server and client.
   const role = user?.role;
-  const isVisible = (item: NavItem): boolean => {
-    if (item.perm === "content.newsletter") {
-      return role === "super_admin" || role === "manager" || role === "editor";
-    }
-    if (item.perm === "content.livechat") {
-      return (
-        role === "super_admin" || role === "manager" || role === "commercial"
-      );
-    }
-    return can(role, item.perm);
-  };
+  const isVisible = (item: NavItem): boolean => can(role, item.perm);
 
   const visibleSections = NAV.map((section) => ({
     ...section,

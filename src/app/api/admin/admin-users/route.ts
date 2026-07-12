@@ -3,6 +3,7 @@ import { getServerClient } from "@/lib/supabase";
 import {
   requireRole,
   hashPassword,
+  generateSalt,
   ALL_ROLES,
   type AdminRole,
 } from "@/lib/admin-auth";
@@ -145,9 +146,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const salt = generateSalt();
   const payload = {
     email,
-    password_hash: hashPassword(password),
+    password_hash: hashPassword(password, salt),
+    salt,
     full_name,
     role,
     active,
@@ -317,7 +320,9 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
-    update.password_hash = hashPassword(rest.password);
+    const salt = generateSalt();
+    update.password_hash = hashPassword(rest.password, salt);
+    update.salt = salt;
   }
 
   if (Object.keys(update).length === 0) {
