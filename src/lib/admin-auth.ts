@@ -1,4 +1,5 @@
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
+import bcrypt from "bcryptjs";
 import { getServerClient } from "./supabase";
 import { serverEnv } from "./env";
 import { signToken, verifyToken, base64urlEncode, base64urlDecode } from "./auth/jwt";
@@ -63,7 +64,7 @@ function adminSecret(): string {
   return serverEnv.ADMIN_SECRET;
 }
 
-// ---- Password hashing (scrypt + per-row salt) ----
+// ---- Password hashing (scrypt + per-row salt, with bcrypt fallback) ----
 /**
  * Generate a 16-byte random salt (hex-encoded, 32 chars).
  * Stored in `admin_users.salt` alongside `password_hash`.
@@ -75,18 +76,57 @@ export function generateSalt(): string {
 /**
  * Hash a password with `salt` using scrypt. Returns hex-encoded 64-byte hash.
  *
- * NOTE: this function is intentionally slow (N=16384) — do not call
- * in hot loops. `verifyPassword` re-hashes the input with the stored
- * salt and uses `timingSafeEqual` to compare.
+ * Used for all NEW admin accounts created via the admin UI
+ * (/api/admin/admin-users POST/PATCH). The salt is per-row random.
  */
 export function hashPassword(plain: string, salt: string): string {
   if (!salt) throw new Error("hashPassword: salt is required (per-row).");
   return scryptSync(plain, salt, 64, { N: 16384, r: 8, p: 1 }).toString("hex");
 }
 
-export function verifyPassword(plain: string, hash: string, salt: string): boolean {
+/**
+ * Detect bcrypt hash format. bcrypt hashes start with $2a$, $2b$, or $2y$.
+ * Used to support legacy accounts migrated via SQL (where scrypt is not
+ * available in PL/pgSQL — we use pgcrypto's crypt() with gen_salt('bf')).
+ */
+function isBcryptHash(hash: string): boolean {
+  return /^\$2[aby]\$\d{2}\$.{53}$/.test(hash);
+}
+
+/**
+ * Verify a password against a stored hash. Supports TWO hash formats:
+ *
+ *   1. bcrypt ($2a$10$... / $2b$10$... / $2y$10$...) — used by accounts
+ *      migrated via SQL using `crypt(password, gen_salt('bf', 10))`.
+ *      The `salt` column is IGNORED for bcrypt (the salt is embedded
+ *      in the hash itself).
+ *
+ *   2. scrypt hex (128-char hex string) — used by accounts created
+ *      via the admin UI (/api/admin/admin-users). The `salt` column
+ *      is required and used as the scrypt salt.
+ *
+ * This dual-format support preserves backward compatibility with
+ * the 6 pre-refonte admin accounts (audit §2.2) that were re-hashed
+ * in bcrypt via the supabase-rehash-admins.sql script.
+ *
+ * NOTE: bcryptjs v3 returns Promise<boolean> from compare(). The
+ * function is async accordingly.
+ */
+export async function verifyPassword(
+  plain: string,
+  hash: string,
+  salt: string
+): Promise<boolean> {
   try {
-    if (!salt || !hash) return false;
+    if (!hash) return false;
+
+    // Format 1: bcrypt
+    if (isBcryptHash(hash)) {
+      return await bcrypt.compare(plain, hash);
+    }
+
+    // Format 2: scrypt (requires per-row salt)
+    if (!salt) return false;
     const computed = hashPassword(plain, salt);
     const a = Buffer.from(computed, "hex");
     const b = Buffer.from(hash, "hex");
@@ -214,11 +254,14 @@ export async function authenticateAdmin(
   // Backward-compat: rows created before this refactor may not have a
   // `salt` column. We refuse login for such rows — the operator must
   // reset the password via the new SQL migration (supabase-base-schema.sql).
-  if (!data?.password_hash || !data?.salt) {
+  // (bcrypt hashes don't need the salt column — they have it embedded.
+  //  scrypt hashes do — see verifyPassword dual-format handling.)
+  if (!data?.password_hash) {
     return null;
   }
 
-  if (!verifyPassword(password, data.password_hash, data.salt)) {
+  const ok = await verifyPassword(password, data.password_hash, data.salt || "");
+  if (!ok) {
     return null;
   }
 
