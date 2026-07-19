@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { createElement, useCallback, useEffect, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -286,7 +286,7 @@ export function CategoriesPanel() {
     );
   }
 
-  const PreviewIcon = getIcon(form.icone);
+  const previewIconName = form.icone;
 
   return (
     <div className="space-y-4">
@@ -324,7 +324,6 @@ export function CategoriesPanel() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {categories.map((row) => {
-                const RowIcon = getIcon(row.icone);
                 return (
                   <tr key={row.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-3 font-medium text-slate-900">
@@ -336,7 +335,7 @@ export function CategoriesPanel() {
                     <td className="px-4 py-3 text-xs text-slate-500">{row.slug}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 text-slate-700">
-                        <RowIcon className="h-4 w-4 text-brand-700" />
+                        {createElement(getIcon(row.icone), { className: "h-4 w-4 text-brand-700" })}
                         <span className="text-xs">{row.icone || "—"}</span>
                       </div>
                     </td>
@@ -434,7 +433,7 @@ export function CategoriesPanel() {
               <Label htmlFor="c_icone">{t("iconName")}</Label>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50">
-                  <PreviewIcon className="h-5 w-5 text-brand-700" />
+                  {createElement(getIcon(previewIconName), { className: "h-5 w-5 text-brand-700" })}
                 </div>
                 <Input
                   id="c_icone"

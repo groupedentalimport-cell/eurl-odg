@@ -13,3 +13,13 @@ tsconfig.tsbuildinfo
 /download/
 *.tsbuildinfo
 tool-results/
+
+# Sandbox-specific files (not part of the production app)
+Caddyfile
+db/
+prisma/
+mini-services/
+.zscripts/
+components.json
+tailwind.config.ts
+eslint.config.mjs
