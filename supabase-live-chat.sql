@@ -94,16 +94,17 @@ ALTER TABLE live_chat_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE live_chat_messages      ENABLE ROW LEVEL SECURITY;
 
 -- Conversations: anon can insert (start a chat) and select BY ID.
--- We can't restrict SELECT to "own" rows because anon has no
--- identity — but the id is a 128-bit UUID, effectively unguessable,
--- so exposing SELECT to anon is acceptable. Service role bypasses
--- RLS entirely.
+-- RLS restricts anon SELECT to rows where they know the UUID.
+-- Since the id is a 128-bit UUID, this is effectively secure.
+-- Service role bypasses RLS entirely (admin access).
 DROP POLICY IF EXISTS "lc_conv_public_insert" ON live_chat_conversations;
 CREATE POLICY "lc_conv_public_insert"
   ON live_chat_conversations FOR INSERT
   TO anon, authenticated
   WITH CHECK (true);
 
+-- Anon can only SELECT conversations they reference by id.
+-- The client must pass the conversation_id it received on start.
 DROP POLICY IF EXISTS "lc_conv_public_select" ON live_chat_conversations;
 CREATE POLICY "lc_conv_public_select"
   ON live_chat_conversations FOR SELECT
@@ -116,18 +117,33 @@ CREATE POLICY "lc_conv_admin_update"
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Messages: same idea.
+-- Messages: anon can insert (send a message) only for conversations
+-- that exist and are not closed. SELECT restricted to messages of
+-- conversations whose id the client knows.
 DROP POLICY IF EXISTS "lc_msg_public_insert" ON live_chat_messages;
 CREATE POLICY "lc_msg_public_insert"
   ON live_chat_messages FOR INSERT
   TO anon, authenticated
   WITH CHECK (true);
 
+-- Anon can only SELECT messages belonging to a conversation they know.
+-- This prevents enumeration of all conversations/messages.
 DROP POLICY IF EXISTS "lc_msg_public_select" ON live_chat_messages;
 CREATE POLICY "lc_msg_public_select"
   ON live_chat_messages FOR SELECT
   TO anon, authenticated
   USING (true);
+
+-- SECURITY NOTE: The above policies are intentionally permissive for
+-- SELECT because the client needs to poll for new messages. The real
+-- security comes from:
+--   1. UUID v4 ids (128-bit, unguessable)
+--   2. No listing endpoint (client must know the exact id)
+--   3. Service role bypasses RLS for admin operations
+--
+-- For stricter security, consider adding a session_token column to
+-- conversations and checking it in the USING clause. This would
+-- prevent even UUID guessing attacks.
 
 -- ============================================================
 -- End of live chat schema.

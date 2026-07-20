@@ -50,7 +50,7 @@ const serverSchema = z.object({
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().min(1),
   SMTP_PASS: z.string().min(1),
-  SMTP_FROM: z.string().min(1),
+  EMAIL_FROM: z.string().min(1),
 
   // ---- Z.AI chatbot ----
   ZAI_API_KEY: z.string().min(1),
@@ -113,7 +113,7 @@ function loadServer() {
     SMTP_PORT: dev.SMTP_PORT || "1025",
     SMTP_USER: dev.SMTP_USER || "dev",
     SMTP_PASS: dev.SMTP_PASS || "dev",
-    SMTP_FROM: dev.SMTP_FROM || "dev@localhost",
+    EMAIL_FROM: dev.EMAIL_FROM || "dev@localhost",
     ZAI_API_KEY: dev.ZAI_API_KEY || "dev-zai-key",
   });
 }

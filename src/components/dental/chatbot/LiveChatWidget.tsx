@@ -403,7 +403,7 @@ export function LiveChatWidget() {
             onClick={() => setOpen(true)}
             aria-label={t("liveChatRTOpen")}
             title={t("liveChatRTOpen")}
-            className="fixed bottom-24 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand-700 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 transition-colors hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-4 focus:ring-brand-200 sm:bottom-28 sm:right-6 sm:h-14 sm:w-14"
+            className="fixed bottom-24 left-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand-700 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 transition-colors hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-4 focus:ring-brand-200 sm:bottom-24 sm:left-6 sm:h-14 sm:w-14"
           >
             <Headphones className="h-5 w-5 sm:h-6 sm:w-6" />
             {/* Online/offline dot */}
@@ -426,7 +426,7 @@ export function LiveChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.96 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-x-0 bottom-0 z-50 sm:inset-x-auto sm:right-6 sm:bottom-24"
+            className="fixed inset-x-0 bottom-0 z-50 sm:inset-x-auto sm:left-6 sm:bottom-24"
           >
             <div className="mx-auto flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:w-[400px] sm:rounded-2xl">
               {/* Mobile drag handle */}

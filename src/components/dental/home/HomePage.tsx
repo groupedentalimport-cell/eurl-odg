@@ -430,12 +430,12 @@ export function HomePage() {
                     <Card className="h-full overflow-hidden border-slate-200 transition-all hover:-translate-y-1 hover:shadow-lg">
                       <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
                         {post.imageUrl && url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <Image
                             src={url}
                             alt={post.title[lang]}
-                            loading="lazy"
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            className="object-cover transition-transform duration-300 group-hover:scale-105"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-100 to-brand-50 text-brand-700">

@@ -16,6 +16,7 @@ import {
   User,
   Tag,
   ShoppingCart,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,6 +127,7 @@ export function QuotesPanel() {
   const [tableMissing, setTableMissing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | QuoteStatus>("all");
 
   const refresh = useCallback(async () => {
@@ -210,6 +212,31 @@ export function QuotesPanel() {
       toast.error(e?.message || "Erreur réseau");
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const convertToDevis = async (quoteId: string) => {
+    setConvertingId(quoteId);
+    try {
+      const res = await fetch("/api/admin/quotes/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quote_id: quoteId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data?.error || `HTTP ${res.status}`);
+        return;
+      }
+      // Update local state: mark as traite
+      setQuotes((prev) =>
+        prev.map((q) => (q.id === quoteId ? { ...q, statut: "traite" } : q))
+      );
+      toast.success(data?.message || t("saved"));
+    } catch (e: any) {
+      toast.error(e?.message || "Erreur réseau");
+    } finally {
+      setConvertingId(null);
     }
   };
 
@@ -498,6 +525,22 @@ export function QuotesPanel() {
                   {/* Action buttons */}
                   <Separator className="my-3" />
                   <div className="flex flex-wrap items-center justify-end gap-2">
+                    {(q.statut === "nouveau" || q.statut === "en_cours") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => convertToDevis(q.id)}
+                        disabled={convertingId === q.id}
+                        className="border-brand-200 text-brand-700 hover:bg-brand-50"
+                      >
+                        {convertingId === q.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <FileText className="h-3.5 w-3.5" />
+                        )}
+                        {t("convertToDevis")}
+                      </Button>
+                    )}
                     {q.statut === "nouveau" && (
                       <Button
                         size="sm"

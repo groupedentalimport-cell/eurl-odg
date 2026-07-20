@@ -16,12 +16,13 @@
 -- Idempotent: safe to run multiple times.
 --
 -- Run order on a fresh database:
---   1. supabase-base-schema.sql       (this file)
---   2. supabase-crm-schema.sql        (existing — clients, devis, etc.)
---   3. supabase-site-settings-v2.sql  (fixes the settings table)
---   4. supabase-live-chat.sql         (existing)
---   5. supabase-indexes.sql           (additional indexes)
---   6. supabase-admin-migration.sql   (add salt column + reset password)
+--   1. supabase-base-schema.sql         (this file)
+--   2. supabase-crm-schema.sql          (clients, devis, etc.)
+--   3. supabase-site-settings-v2.sql    (settings table)
+--   4. supabase-live-chat.sql           (live chat tables)
+--   5. supabase-indexes.sql             (additional indexes)
+--   6. supabase-cleanup-products.sql    (remove categorie_id, add category_slug)
+--   7. supabase-admin-migration.sql     (reset admin password with per-row salt)
 -- ============================================================
 
 -- Required for gen_random_uuid() and crypt()
@@ -162,18 +163,17 @@ alter table public.products add column if not exists reference       text;
 alter table public.products add column if not exists description_fr  text;
 alter table public.products add column if not exists description_ar  text;
 alter table public.products add column if not exists prix            numeric(12,2) not null default 0;
-alter table public.products add column if not exists categorie_id    uuid;
 alter table public.products add column if not exists image           text;
 alter table public.products add column if not exists images          jsonb not null default '[]';
-alter table public.products add column if not exists marques         jsonb not null default '[]';
 alter table public.products add column if not exists specs           jsonb not null default '{}';
 alter table public.products add column if not exists disponible      boolean not null default true;
 alter table public.products add column if not exists featured        boolean not null default false;
 alter table public.products add column if not exists ordre           int not null default 0;
--- Legacy columns used by admin/products/route.ts buildPayload()
+-- Columns used by admin/products/route.ts buildPayload()
 alter table public.products add column if not exists pdf_url         text;
 alter table public.products add column if not exists brochure_pdf    text;
 alter table public.products add column if not exists category_id     uuid;
+alter table public.products add column if not exists category_slug   text;
 alter table public.products add column if not exists marque          text;
 alter table public.products add column if not exists modele          text;
 alter table public.products add column if not exists en_vedette      boolean not null default false;
@@ -189,14 +189,15 @@ exception when others then
 end $$;
 
 do $$ begin
-  execute 'alter table public.products drop constraint if exists products_categorie_id_fkey';
-  execute 'alter table public.products add constraint products_categorie_id_fkey foreign key (categorie_id) references public.categories(id) on delete set null';
+  execute 'alter table public.products drop constraint if exists products_category_id_fkey';
+  execute 'alter table public.products add constraint products_category_id_fkey foreign key (category_id) references public.categories(id) on delete set null';
 exception when others then
-  raise notice 'Skipping products_categorie_id_fkey: %', sqlerrm;
+  raise notice 'Skipping products_category_id_fkey: %', sqlerrm;
 end $$;
 
 create index if not exists products_slug_idx         on public.products (slug);
-create index if not exists products_categorie_id_idx on public.products (categorie_id);
+create index if not exists products_category_id_idx  on public.products (category_id);
+create index if not exists products_category_slug_idx on public.products (category_slug);
 create index if not exists products_disponible_idx   on public.products (disponible);
 create index if not exists products_featured_idx     on public.products (featured);
 

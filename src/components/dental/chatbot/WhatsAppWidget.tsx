@@ -38,6 +38,7 @@ export function WhatsAppWidget() {
 
   return (
     <div className="fixed left-4 bottom-4 z-40 sm:left-6 sm:bottom-6">
+      {/* WhatsApp is bottom-left. LiveChat is bottom-24 left. Chatbot is bottom-right. */}
       <motion.button
         type="button"
         initial={{ scale: 0, opacity: 0 }}

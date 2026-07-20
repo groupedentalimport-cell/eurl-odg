@@ -325,6 +325,7 @@ export const T = {
   markAsInProgress: { fr: "Marquer en cours", ar: "وضع قيد المعالجة" },
   markAsDone: { fr: "Marquer traité", ar: "وضع كمعالج" },
   markAsArchived: { fr: "Archiver", ar: "أرشفة" },
+  convertToDevis: { fr: "Convertir en devis", ar: "تحويل إلى عرض سعر" },
   quoteDetails: { fr: "Détails du devis", ar: "تفاصيل العرض" },
   quoteNumber: { fr: "Devis", ar: "عرض" },
   quoteReceived: { fr: "Demande de devis envoyée !", ar: "تم إرسال طلب العرض!" },
