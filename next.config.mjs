@@ -59,23 +59,11 @@ const nextConfig = {
         ],
       },
       {
-        // Cache JS chunks immutably (1 year). DO NOT set Content-Type
-        // here — Vercel/Next.js already serves the correct MIME type
-        // per file extension (.js → application/javascript, .css →
-        // text/css). Forcing application/javascript on ALL chunks
-        // breaks .css files served from the chunks/ folder.
-        // (Bug introduced in refactor/total — fixed here.)
-        source: "/_next/static/chunks/:path*.js",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
-      {
-        // CSS files in /_next/static/ — immutable cache, no MIME override.
-        source: "/_next/static/:path*.css",
+        // Cache ALL static assets immutably (1 year).
+        // This covers JS, CSS, fonts, images in /_next/static/.
+        // Vercel/Next.js automatically sets the correct Content-Type
+        // per file extension — we do NOT override it here.
+        source: "/_next/static/(.*)",
         headers: [
           {
             key: "Cache-Control",

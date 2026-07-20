@@ -2,7 +2,7 @@
 // Caches the home page + key static assets so the site loads
 // even without a network connection (Progressive Web App).
 
-const CACHE_NAME = "odg-v1";
+const CACHE_NAME = "odg-v2"; // Bumped: old CSS chunks were stale after deploy
 const PRECACHE_URLS = [
   "/",
   "/catalogue",
