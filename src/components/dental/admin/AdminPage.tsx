@@ -6,7 +6,7 @@ import {
   LogOut, Loader2,
   LayoutDashboard, Mail, Package, FileText, Home, Info, Phone, Settings,
   Users, FileSpreadsheet, ShoppingCart, Wrench, Calendar, ShieldCheck, UserCog,
-  Newspaper, Headphones,
+  Newspaper, Headphones, Camera, MessageSquareQuote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,8 @@ const AdminUsersPanel = dynamic(() => import("./panels/AdminUsersPanel").then(m 
 const QuotesPanel = dynamic(() => import("./panels/QuotesPanel").then(m => ({ default: m.QuotesPanel })));
 const NewsletterPanel = dynamic(() => import("./panels/NewsletterPanel").then(m => ({ default: m.NewsletterPanel })));
 const LiveChatPanel = dynamic(() => import("./panels/LiveChatPanel").then(m => ({ default: m.LiveChatPanel })), { loading: () => <PanelLoader /> });
+const RealisationsPanel = dynamic(() => import("./panels/RealisationsPanel").then(m => ({ default: m.RealisationsPanel })));
+const TestimonialsPanel = dynamic(() => import("./panels/TestimonialsPanel").then(m => ({ default: m.TestimonialsPanel })));
 
 interface NavItem {
   id: string;
@@ -71,6 +73,8 @@ const NAV: NavSection[] = [
       { id: "home", label: "Accueil", icon: Home, perm: "content.home", panel: HomeSettingsPanel },
       { id: "about", label: "À propos", icon: Info, perm: "content.about", panel: AboutSettingsPanel },
       { id: "contact", label: "Contact", icon: Phone, perm: "content.contact", panel: ContactSettingsPanel },
+      { id: "realisations", label: "Réalisations", icon: Camera, perm: "content.realisations", panel: RealisationsPanel },
+      { id: "testimonials", label: "Témoignages", icon: MessageSquareQuote, perm: "content.testimonials", panel: TestimonialsPanel },
     ],
   },
   {

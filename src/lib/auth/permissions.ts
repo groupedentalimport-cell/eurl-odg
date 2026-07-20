@@ -31,7 +31,9 @@ export type Action =
   | "quotes"
   | "newsletter"
   | "livechat"
-  | "finance";
+  | "finance"
+  | "realisations"
+  | "testimonials";
 
 /**
  * Per-action allowed roles. `super_admin` is implicit (always allowed)
@@ -56,6 +58,8 @@ export const PERMISSIONS: Record<Action, AdminRole[]> = {
   newsletter: ["manager", "editor"],
   livechat: ["manager"],
   finance: ["manager", "accountant"],
+  realisations: ["editor"],
+  testimonials: ["editor"],
 };
 
 /**
