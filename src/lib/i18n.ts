@@ -705,7 +705,6 @@ export const T = {
   aboutValuesDesc: { fr: "Les 4 cartes de valeurs affichées sur la page À propos.", ar: "بطاقات القيم الظاهرة في صفحة من نحن." },
   aboutBrandsTitle: { fr: "Marques exclusives", ar: "العلامات الحصرية" },
   aboutBrandsDesc: { fr: "Les marques affichées sur la page À propos.", ar: "العلامات الظاهرة في صفحة من نحن." },
-  valuesTitle: { fr: "Titre de la section", ar: "عنوان القسم" },
   // === Legal settings admin ===
   legalCompanyTitle: { fr: "Informations légales entreprise", ar: "معلومات قانونية للشركة" },
   legalCompanyDesc: { fr: "Champs affichés dans les mentions légales.", ar: "الحقول الظاهرة في الإشعار القانوني." },
