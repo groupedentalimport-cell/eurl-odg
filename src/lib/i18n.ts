@@ -694,6 +694,12 @@ export const T = {
   },
   realisationsProductsInstalled: { fr: "Produits installés", ar: "المنتجات المركبة" },
   realisationsViewProject: { fr: "Voir le projet", ar: "عرض المشروع" },
+  // === Homepage sections admin (Why Us, Brands) ===
+  heroBrandsTitle: { fr: "Marques dans le hero", ar: "العلامات في البانر" },
+  heroBrandsDesc: { fr: "Marques affichées dans la section hero de l'accueil.", ar: "العلامات الظاهرة في بانر الصفحة الرئيسية." },
+  whyUsSectionTitle: { fr: "Section 'Pourquoi nous'", ar: "قسم 'لماذا نحن'" },
+  whyUsSectionDesc: { fr: "Les 4 cartes d'avantages concurrentiels affichées sur l'accueil.", ar: "بطاقات المزايا التنافسية الظاهرة في الصفحة الرئيسية." },
+  addWhyCard: { fr: "Ajouter une carte", ar: "أضف بطاقة" },
   // === Global header search (Task SEARCH-1) ===
   searchPlaceholder: { fr: "Rechercher un produit, un article...", ar: "البحث عن منتج، مقال..." },
   searchNoResults: { fr: "Aucun résultat", ar: "لا توجد نتائج" },

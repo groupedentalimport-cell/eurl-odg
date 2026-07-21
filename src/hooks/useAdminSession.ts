@@ -49,6 +49,8 @@ export function can(role: AdminRole | undefined | null, action: string): boolean
     "content.contact": ["editor"],
     "content.newsletter": ["manager", "editor"], // added — was missing
     "content.livechat": ["manager"], // added — was missing
+    "content.realisations": ["editor"],
+    "content.testimonials": ["editor"],
     // CRM
     "crm.clients": ["manager", "commercial", "accountant"],
     "crm.devis": ["manager", "commercial"],

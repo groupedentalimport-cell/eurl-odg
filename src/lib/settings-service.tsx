@@ -67,6 +67,25 @@ export interface CompanySettings {
 // "35.6551" / "-0.6417") so the admin can paste DMS or decimal values;
 // the public ContactPage parses them with parseFloat and falls back to
 // the Oran defaults when NaN/empty.
+export interface WhyCard {
+  title_fr: string;
+  title_ar: string;
+  desc_fr: string;
+  desc_ar: string;
+  icon: string;
+}
+
+export interface HeroBrand {
+  name: string;
+}
+
+export interface HomeSectionsSettings {
+  whyTitle_fr: string;
+  whyTitle_ar: string;
+  whyCards: WhyCard[];
+  heroBrands: HeroBrand[];
+}
+
 export interface MapSettings {
   lat: string;
   lng: string;
@@ -78,6 +97,7 @@ export interface MapSettings {
 interface AllSettings {
   company: CompanySettings;
   home: HomeSettings;
+  homeSections: HomeSectionsSettings;
   about: AboutSettings;
   stats: StatItem[];
   map: MapSettings;
@@ -109,6 +129,21 @@ const DEFAULT_SETTINGS: AllSettings = {
     ctaTitle_ar: "مشروع تجهيز؟",
     ctaSubtitle_fr: "Nos experts vous accompagnent de A à Z.",
     ctaSubtitle_ar: "خبراؤنا يرافقونك من الألف إلى الياء.",
+  },
+  homeSections: {
+    whyTitle_fr: "Pourquoi nous choisir ?",
+    whyTitle_ar: "لماذا تختارنا؟",
+    whyCards: [
+      { title_fr: "Marques certifiées", title_ar: "علامات معتمدة", desc_fr: "Silver Fox, ICANCLAVE, OWANDY — qualité internationale.", desc_ar: "Silver Fox، ICANCLAVE، OWANDY — جودة دولية.", icon: "ShieldCheck" },
+      { title_fr: "Service après-vente", title_ar: "خدمة ما بعد البيع", desc_fr: "Pièces détachées et techniciens en Algérie.", desc_ar: "قطع غيار وفنيون في الجزائر.", icon: "Wrench" },
+      { title_fr: "Formation incluse", title_ar: "تكوين مشمول", desc_fr: "Installation et formation à la prise en main.", desc_ar: "التركيب والتكوين على الاستعمال.", icon: "GraduationCap" },
+      { title_fr: "Garantie 24 mois", title_ar: "ضمان 24 شهر", desc_fr: "Tous nos produits sont garantis 2 ans.", desc_ar: "كل منتجاتنا مضمونة سنتين.", icon: "BadgeCheck" },
+    ],
+    heroBrands: [
+      { name: "Silver Fox" },
+      { name: "ICANCLAVE" },
+      { name: "OWANDY" },
+    ],
   },
   about: {
     story_fr: "EURL OUADAH DENTAL GROUPE est un importateur spécialisé en matériel dentaire, basé à Oran. Depuis plus de 15 ans, nous équipons les cabinets dentaires, cliniques et hôpitaux d'Algérie avec du matériel de qualité internationale.",
@@ -197,6 +232,24 @@ function assemble(flat: Record<string, SettingRow>): AllSettings {
       .join("\n\n") || DEFAULT_SETTINGS.about.story_ar,
   };
 
+  // Home sections (Why Us cards + hero brands) from home.* JSON keys
+  const whyCardsRow = g("home.why_cards");
+  let whyCards: WhyCard[] = DEFAULT_SETTINGS.homeSections.whyCards;
+  if (whyCardsRow?.value_json && Array.isArray(whyCardsRow.value_json)) {
+    whyCards = whyCardsRow.value_json as WhyCard[];
+  }
+  const heroBrandsRow = g("home.hero_brands");
+  let heroBrands: HeroBrand[] = DEFAULT_SETTINGS.homeSections.heroBrands;
+  if (heroBrandsRow?.value_json && Array.isArray(heroBrandsRow.value_json)) {
+    heroBrands = heroBrandsRow.value_json as HeroBrand[];
+  }
+  const homeSections: HomeSectionsSettings = {
+    whyTitle_fr: txt("home.why_title_fr", "fr", DEFAULT_SETTINGS.homeSections.whyTitle_fr),
+    whyTitle_ar: txt("home.why_title_ar", "ar", DEFAULT_SETTINGS.homeSections.whyTitle_ar),
+    whyCards,
+    heroBrands,
+  };
+
   // Stats from stats.* keys (build array from known stat rows)
   const statKeys = [
     { key: "stats.clinics", suffix: "stats.suffix.clinics", fr: "Cabinets équipés", ar: "عيادات مجهزة" },
@@ -227,7 +280,7 @@ function assemble(flat: Record<string, SettingRow>): AllSettings {
     label_ar: txt("contact.map.address_ar", "ar", DEFAULT_SETTINGS.map.label_ar),
   };
 
-  return { company, home, about, stats, map };
+  return { company, home, homeSections, about, stats, map };
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {

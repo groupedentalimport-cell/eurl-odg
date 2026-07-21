@@ -14,6 +14,11 @@ import {
   Package,
   ChevronLeft,
   SlidersHorizontal,
+  Star,
+  Award,
+  Heart,
+  Zap,
+  CheckCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,19 +27,16 @@ import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/dental/catalogue/ProductCard";
 import { Newsletter } from "@/components/dental/newsletter/Newsletter";
 import { TestimonialsSection } from "@/components/dental/home/TestimonialsSection";
-import { useTranslation, type TKey } from "@/lib/i18n";
+import { useTranslation } from "@/lib/i18n";
 import { useData } from "@/lib/data-service";
 import { useSettings } from "@/lib/settings-service";
 import { navigate } from "@/lib/router";
 import { getBlogImageUrl } from "@/lib/supabase";
 
-// Map icon string names from categories to lucide components
+// Map icon string names from settings to lucide components
 const ICONS: Record<string, LucideIcon> = {
-  Armchair,
-  Stethoscope,
-  Radiation,
-  ShieldCheck,
-  Package,
+  Armchair, Stethoscope, Radiation, ShieldCheck, Package,
+  Wrench, GraduationCap, BadgeCheck, Star, Award, Heart, Zap, CheckCircle,
 };
 
 const fadeUp = {
@@ -52,18 +54,16 @@ export function HomePage() {
   const ctaSubtitle = lang === "ar" ? settings.home.ctaSubtitle_ar : settings.home.ctaSubtitle_fr;
   const stats = settings.stats;
 
+  // Dynamic Why Us cards from admin settings
+  const whyTitle = lang === "ar" ? settings.homeSections.whyTitle_ar : settings.homeSections.whyTitle_fr;
+  const whyCards = settings.homeSections.whyCards;
+  const heroBrands = settings.homeSections.heroBrands;
+
   const featured = useMemo(
     () => products.filter((p) => p.featured).slice(0, 8),
     [products]
   );
   const latestPosts = useMemo(() => blogPosts.slice(0, 3), [blogPosts]);
-
-  const whyCards = [
-    { icon: ShieldCheck, titleKey: "why1Title", descKey: "why1Desc" },
-    { icon: Wrench, titleKey: "why2Title", descKey: "why2Desc" },
-    { icon: GraduationCap, titleKey: "why3Title", descKey: "why3Desc" },
-    { icon: BadgeCheck, titleKey: "why4Title", descKey: "why4Desc" },
-  ] as const;
 
   return (
     <div className="flex flex-col">
@@ -128,10 +128,10 @@ export function HomePage() {
               <span className="font-semibold uppercase tracking-wide text-brand-200">
                 {lang === "ar" ? "علاماتنا الحصرية:" : "Nos marques exclusives :"}
               </span>
-              {["Silver Fox", "ICANCLAVE", "OWANDY"].map((b, i) => (
-                <span key={b} className="flex items-center gap-x-4">
+              {heroBrands.map((b, i) => (
+                <span key={b.name} className="flex items-center gap-x-4">
                   {i > 0 && <span className="text-brand-400">•</span>}
-                  <span className="font-bold text-white">{b}</span>
+                  <span className="font-bold text-white">{b.name}</span>
                 </span>
               ))}
             </div>
@@ -336,13 +336,13 @@ export function HomePage() {
       {/* WHY US */}
       <section className="bg-slate-50 py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <SectionHeader title={t("whyUsTitle")} />
+          <SectionHeader title={whyTitle || t("whyUsTitle")} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {whyCards.map((w, i) => {
-              const Icon = w.icon;
+              const Icon = ICONS[w.icon] || Star;
               return (
                 <motion.div
-                  key={w.titleKey}
+                  key={`${w.icon}-${i}`}
                   initial="hidden"
                   whileInView="visible"
                   viewport={{ once: true, amount: 0.2 }}
@@ -355,10 +355,10 @@ export function HomePage() {
                         <Icon className="h-7 w-7" />
                       </div>
                       <h3 className="text-base font-semibold text-slate-900">
-                        {t(w.titleKey as TKey)}
+                        {lang === "ar" ? w.title_ar : w.title_fr}
                       </h3>
                       <p className="mt-2 text-sm text-slate-500">
-                        {t(w.descKey as TKey)}
+                        {lang === "ar" ? w.desc_ar : w.desc_fr}
                       </p>
                     </CardContent>
                   </Card>

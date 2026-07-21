@@ -192,6 +192,24 @@ function translateToFlat(key: string, value: Record<string, unknown>): FlatUpser
         type: "text",
       });
     }
+  } else if (key === "home_sections") {
+    // Homepage sections: Why Us cards + hero brands
+    // Stored as JSON rows: home.why_cards, home.hero_brands, home.why_title_fr, home.why_title_ar
+    const v = value as { whyTitle_fr?: string; whyTitle_ar?: string; whyCards?: unknown[]; heroBrands?: unknown[] };
+    if (v.whyTitle_fr !== undefined) {
+      upserts.push({ key: "home.why_title_fr", value_fr: v.whyTitle_fr || null, value_ar: null, category: "home", label: "Titre section 'Pourquoi nous' (FR)", type: "text" });
+    }
+    if (v.whyTitle_ar !== undefined) {
+      upserts.push({ key: "home.why_title_ar", value_fr: null, value_ar: v.whyTitle_ar || null, category: "home", label: "Titre section 'Pourquoi nous' (AR)", type: "text" });
+    }
+    if (v.whyCards !== undefined) {
+      upserts.push({ key: "home.why_cards", value_fr: null, value_ar: null, category: "home", label: "Cartes 'Pourquoi nous'", type: "json" });
+      (upserts as any).__whyCardsArray = v.whyCards;
+    }
+    if (v.heroBrands !== undefined) {
+      upserts.push({ key: "home.hero_brands", value_fr: null, value_ar: null, category: "home", label: "Marques hero", type: "json" });
+      (upserts as any).__heroBrandsArray = v.heroBrands;
+    }
   } else if (key === "brands") {
     // Exclusive brands array — stored as value_json in the about.brands row.
     // value is an array of {name, bg, text}.
@@ -247,19 +265,26 @@ export async function PUT(request: NextRequest) {
 
   // Side-channel: for the "brands" key, the brands array is stashed on the upserts object.
   const brandsArray = (upserts as any).__brandsArray as unknown[] | undefined;
+  const whyCardsArray = (upserts as any).__whyCardsArray as unknown[] | undefined;
+  const heroBrandsArray = (upserts as any).__heroBrandsArray as unknown[] | undefined;
 
   try {
     // Build the upsert rows. For json-type rows, populate value_json with the brands array.
-    const rows = upserts.map((u) => ({
-      key: u.key,
-      value_fr: u.value_fr,
-      value_ar: u.value_ar,
-      value_json: u.type === "json" && brandsArray ? brandsArray : null,
-      category: u.category,
-      label: u.label,
-      type: u.type,
-      updated_at: new Date().toISOString(),
-    }));
+    const rows = upserts.map((u) => {
+      let valueJson = u.type === "json" && brandsArray ? brandsArray : null;
+      if (u.type === "json" && u.key === "home.why_cards" && whyCardsArray) valueJson = whyCardsArray;
+      if (u.type === "json" && u.key === "home.hero_brands" && heroBrandsArray) valueJson = heroBrandsArray;
+      return {
+        key: u.key,
+        value_fr: u.value_fr,
+        value_ar: u.value_ar,
+        value_json: valueJson,
+        category: u.category,
+        label: u.label,
+        type: u.type,
+        updated_at: new Date().toISOString(),
+      };
+    });
     const { error } = await client
       .from("site_settings")
       .upsert(rows, { onConflict: "key" });

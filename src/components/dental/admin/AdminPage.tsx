@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Mail, Package, FileText, Home, Info, Phone, Settings,
   Users, FileSpreadsheet, ShoppingCart, Wrench, Calendar, ShieldCheck, UserCog,
   Newspaper, Headphones, Camera, MessageSquareQuote,
+  Building2, Sparkles, Globe, Scale,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ const ProductsPanel = dynamic(() => import("./panels/ProductsPanel").then(m => (
 const ArticlesPanel = dynamic(() => import("./panels/ArticlesPanel").then(m => ({ default: m.ArticlesPanel })));
 const CategoriesPanel = dynamic(() => import("./panels/CategoriesPanel").then(m => ({ default: m.CategoriesPanel })));
 const HomeSettingsPanel = dynamic(() => import("./panels/HomeSettingsPanel").then(m => ({ default: m.HomeSettingsPanel })));
+const HomePageSectionsPanel = dynamic(() => import("./panels/HomePageSectionsPanel").then(m => ({ default: m.HomePageSectionsPanel })));
 const AboutSettingsPanel = dynamic(() => import("./panels/AboutSettingsPanel").then(m => ({ default: m.AboutSettingsPanel })));
 const ContactSettingsPanel = dynamic(() => import("./panels/ContactSettingsPanel").then(m => ({ default: m.ContactSettingsPanel })));
 const ClientsPanel = dynamic(() => import("./panels/ClientsPanel").then(m => ({ default: m.ClientsPanel })));
@@ -53,47 +55,74 @@ interface NavItem {
 
 interface NavSection {
   title: string;
+  icon: React.ComponentType<{ className?: string }>;
   items: NavItem[];
 }
 
 const NAV: NavSection[] = [
+  // ─────────────────────────────────────────────────────────
+  // 📊 PILOTAGE — visible par tous les rôles authentifiés
+  // ─────────────────────────────────────────────────────────
   {
     title: "Pilotage",
+    icon: LayoutDashboard,
     items: [
       { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard, perm: "admin.dashboard", panel: DashboardPanel },
     ],
   },
+  // ─────────────────────────────────────────────────────────
+  // 📝 MARKETING & CONTENU — éditeur, manager
+  // Gère tout le contenu du site public : pages, produits, articles
+  // ─────────────────────────────────────────────────────────
   {
-    title: "Contenu",
+    title: "Marketing & Contenu",
+    icon: Globe,
     items: [
-      { id: "messages", label: "Messages", icon: Mail, perm: "content.messages", panel: MessagesPanel },
-      { id: "quotes", label: "Demandes devis", icon: FileSpreadsheet, perm: "crm.quotes", panel: QuotesPanel },
-      { id: "products", label: "Produits", icon: Package, perm: "content.products", panel: ProductsPanel },
-      { id: "posts", label: "Articles", icon: FileText, perm: "content.posts", panel: ArticlesPanel },
-      { id: "home", label: "Accueil", icon: Home, perm: "content.home", panel: HomeSettingsPanel },
+      { id: "home", label: "Accueil (Hero)", icon: Home, perm: "content.home", panel: HomeSettingsPanel },
+      { id: "home-sections", label: "Accueil (Sections)", icon: Sparkles, perm: "content.home", panel: HomePageSectionsPanel },
       { id: "about", label: "À propos", icon: Info, perm: "content.about", panel: AboutSettingsPanel },
-      { id: "contact", label: "Contact", icon: Phone, perm: "content.contact", panel: ContactSettingsPanel },
+      { id: "contact", label: "Contact & Coordonnées", icon: Phone, perm: "content.contact", panel: ContactSettingsPanel },
+      { id: "products", label: "Produits", icon: Package, perm: "content.products", panel: ProductsPanel },
+      { id: "categories", label: "Catégories", icon: Package, perm: "content.categories", panel: CategoriesPanel },
+      { id: "posts", label: "Articles / Blog", icon: FileText, perm: "content.posts", panel: ArticlesPanel },
       { id: "realisations", label: "Réalisations", icon: Camera, perm: "content.realisations", panel: RealisationsPanel },
       { id: "testimonials", label: "Témoignages", icon: MessageSquareQuote, perm: "content.testimonials", panel: TestimonialsPanel },
     ],
   },
+  // ─────────────────────────────────────────────────────────
+  // 💬 COMMUNICATION — manager, éditeur
+  // Messages entrants, newsletter, chat en direct
+  // ─────────────────────────────────────────────────────────
   {
     title: "Communication",
+    icon: Mail,
     items: [
+      { id: "messages", label: "Messages", icon: Mail, perm: "content.messages", panel: MessagesPanel },
+      { id: "quotes", label: "Demandes devis", icon: FileSpreadsheet, perm: "crm.quotes", panel: QuotesPanel },
       { id: "live-chat", label: "Chat en direct", icon: Headphones, perm: "content.livechat", panel: LiveChatPanel },
       { id: "newsletter", label: "Newsletter", icon: Newspaper, perm: "content.newsletter", panel: NewsletterPanel },
     ],
   },
+  // ─────────────────────────────────────────────────────────
+  // 💼 COMMERCIAL / CRM — commercial, manager
+  // Clients, devis, commandes
+  // ─────────────────────────────────────────────────────────
   {
-    title: "CRM",
+    title: "Commercial",
+    icon: Users,
     items: [
       { id: "clients", label: "Clients", icon: Users, perm: "crm.clients", panel: ClientsPanel },
       { id: "devis", label: "Devis", icon: FileSpreadsheet, perm: "crm.devis", panel: DevisPanel },
       { id: "commandes", label: "Commandes", icon: ShoppingCart, perm: "crm.commandes", panel: CommandesPanel },
     ],
   },
+  // ─────────────────────────────────────────────────────────
+  // 🔧 OPÉRATIONS — technicien, manager
+  // Interventions, techniciens, maintenances, garanties
+  // ─────────────────────────────────────────────────────────
   {
     title: "Opérations",
+    icon: Wrench,
     items: [
       { id: "interventions", label: "Planning", icon: Calendar, perm: "ops.interventions", panel: InterventionsPanel },
       { id: "techniciens", label: "Techniciens", icon: Wrench, perm: "ops.techniciens", panel: TechniciensPanel },
@@ -101,8 +130,13 @@ const NAV: NavSection[] = [
       { id: "garanties", label: "Garanties", icon: ShieldCheck, perm: "ops.garanties", panel: GarantiesPanel },
     ],
   },
+  // ─────────────────────────────────────────────────────────
+  // ⚙️ ADMINISTRATION — super_admin, manager
+  // Utilisateurs et configuration système
+  // ─────────────────────────────────────────────────────────
   {
     title: "Administration",
+    icon: UserCog,
     items: [
       { id: "admin-users", label: "Utilisateurs", icon: UserCog, perm: "admin.users", panel: AdminUsersPanel },
     ],
@@ -265,11 +299,23 @@ export function AdminPage() {
       {/* Layout: sidebar + main */}
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* Sidebar */}
-        <aside className="lg:w-56 lg:shrink-0">
+        <aside className="lg:w-64 lg:shrink-0">
+          {/* Organisation badge */}
+          <div className="mb-4 hidden items-center gap-2 rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2.5 lg:flex">
+            <Building2 className="h-5 w-5 shrink-0 text-brand-700" />
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-brand-800">OUADAH DENTAL GROUPE</p>
+              <p className="text-[10px] text-brand-600">{user?.role}</p>
+            </div>
+          </div>
+
           <nav className="flex flex-row flex-wrap gap-1 lg:flex-col lg:gap-0.5">
-            {visibleSections.map((section) => (
+            {visibleSections.map((section) => {
+              const SectionIcon = section.icon;
+              return (
               <div key={section.title} className="lg:mb-3">
-                <p className="hidden px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:block">
+                <p className="hidden items-center gap-1.5 px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 lg:flex">
+                  <SectionIcon className="h-3 w-3" />
                   {section.title}
                 </p>
                 {section.items.map((item) => {
@@ -291,7 +337,8 @@ export function AdminPage() {
                   );
                 })}
               </div>
-            ))}
+              );
+            })}
           </nav>
         </aside>
 
