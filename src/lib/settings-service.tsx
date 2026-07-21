@@ -104,11 +104,20 @@ export interface LegalSettings {
   hebergeurUrl: string;
 }
 
+export interface BrandCard {
+  name_fr: string;
+  name_ar: string;
+  desc_fr: string;
+  desc_ar: string;
+  emoji: string;
+  color: string;
+}
+
 export interface AboutPageSettings {
   valuesTitle_fr: string;
   valuesTitle_ar: string;
   values: WhyCard[];
-  brands: Array<WhyCard & { emoji: string; color: string }>;
+  brands: BrandCard[];
 }
 
 export interface FooterLink {
