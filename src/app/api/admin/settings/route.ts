@@ -192,6 +192,40 @@ function translateToFlat(key: string, value: Record<string, unknown>): FlatUpser
         type: "text",
       });
     }
+  } else if (key === "about_page") {
+    // About page: values cards + brands
+    const v = value as { valuesTitle_fr?: string; valuesTitle_ar?: string; values?: unknown[]; brands?: unknown[] };
+    if (v.valuesTitle_fr !== undefined) {
+      upserts.push({ key: "about.values_title_fr", value_fr: v.valuesTitle_fr || null, value_ar: null, category: "about", label: "Titre valeurs (FR)", type: "text" });
+    }
+    if (v.valuesTitle_ar !== undefined) {
+      upserts.push({ key: "about.values_title_ar", value_fr: null, value_ar: v.valuesTitle_ar || null, category: "about", label: "Titre valeurs (AR)", type: "text" });
+    }
+    if (v.values !== undefined) {
+      upserts.push({ key: "about.values", value_fr: null, value_ar: null, category: "about", label: "Cartes valeurs", type: "json" });
+      (upserts as any).__aboutValuesArray = v.values;
+    }
+    if (v.brands !== undefined) {
+      upserts.push({ key: "about.about_brands", value_fr: null, value_ar: null, category: "about", label: "Marques À propos", type: "json" });
+      (upserts as any).__aboutBrandsArray = v.brands;
+    }
+  } else if (key === "legal") {
+    // Legal info: RCCM, NIF, capital, gérant, hébergeur
+    const v = value as Record<string, string>;
+    const fields: Array<{ k: string; val: string | undefined; label: string }> = [
+      { k: "legal.rccm", val: v.rccm, label: "N° RCCM" },
+      { k: "legal.nif", val: v.nif, label: "NIF" },
+      { k: "legal.capital", val: v.capital, label: "Capital social" },
+      { k: "legal.gerant", val: v.gerant, label: "Nom du gérant" },
+      { k: "legal.hebergeur", val: v.hebergeur, label: "Hébergeur" },
+      { k: "legal.hebergeur_adresse", val: v.hebergeurAdresse, label: "Adresse hébergeur" },
+      { k: "legal.hebergeur_url", val: v.hebergeurUrl, label: "URL hébergeur" },
+    ];
+    for (const f of fields) {
+      if (f.val !== undefined) {
+        upserts.push({ key: f.k, value_fr: f.val || null, value_ar: null, category: "legal", label: f.label, type: "text" });
+      }
+    }
   } else if (key === "home_sections") {
     // Homepage sections: Why Us cards + hero brands
     // Stored as JSON rows: home.why_cards, home.hero_brands, home.why_title_fr, home.why_title_ar
@@ -267,6 +301,8 @@ export async function PUT(request: NextRequest) {
   const brandsArray = (upserts as any).__brandsArray as unknown[] | undefined;
   const whyCardsArray = (upserts as any).__whyCardsArray as unknown[] | undefined;
   const heroBrandsArray = (upserts as any).__heroBrandsArray as unknown[] | undefined;
+  const aboutValuesArray = (upserts as any).__aboutValuesArray as unknown[] | undefined;
+  const aboutBrandsArray = (upserts as any).__aboutBrandsArray as unknown[] | undefined;
 
   try {
     // Build the upsert rows. For json-type rows, populate value_json with the brands array.
@@ -274,6 +310,8 @@ export async function PUT(request: NextRequest) {
       let valueJson = u.type === "json" && brandsArray ? brandsArray : null;
       if (u.type === "json" && u.key === "home.why_cards" && whyCardsArray) valueJson = whyCardsArray;
       if (u.type === "json" && u.key === "home.hero_brands" && heroBrandsArray) valueJson = heroBrandsArray;
+      if (u.type === "json" && u.key === "about.values" && aboutValuesArray) valueJson = aboutValuesArray;
+      if (u.type === "json" && u.key === "about.about_brands" && aboutBrandsArray) valueJson = aboutBrandsArray;
       return {
         key: u.key,
         value_fr: u.value_fr,

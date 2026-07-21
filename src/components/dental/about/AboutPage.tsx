@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { ShieldCheck, Wrench, GraduationCap, Award, ArrowRight, Phone } from "lucide-react";
+import { ShieldCheck, Wrench, GraduationCap, Award, ArrowRight, Phone, Star, BadgeCheck, Heart, Zap, CheckCircle, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,14 +8,9 @@ import { useTranslation } from "@/lib/i18n";
 import { useSettings, useCompanyInfo } from "@/lib/settings-service";
 import { navigate } from "@/lib/router";
 
-const WHY_ICONS = [ShieldCheck, Wrench, GraduationCap, Award];
-const WHY_KEYS = ["why1", "why2", "why3", "why4"] as const;
-
-const BRANDS = [
-  { key: "SilverFox", color: "from-brand-700 to-brand-900", img: "🪑" },
-  { key: "Icanclave", color: "from-brand-600 to-brand-800", img: "🧼" },
-  { key: "Owandy", color: "from-brand-500 to-brand-700", img: "📷" },
-] as const;
+const ICONS: Record<string, LucideIcon> = {
+  ShieldCheck, Wrench, GraduationCap, Award, Star, BadgeCheck, Heart, Zap, CheckCircle,
+};
 
 export function AboutPage() {
   const { lang, t } = useTranslation();
@@ -24,11 +19,12 @@ export function AboutPage() {
   const stats = settings.stats;
   const companyName = lang === "ar" ? company.nameAr : company.name;
   const storyText = lang === "ar" ? settings.about.story_ar : settings.about.story_fr;
-  // Split the story into paragraphs for nicer formatting (handles \n\n and single \n)
-  const storyParagraphs = storyText
-    .split(/\n{1,2}/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+  const storyParagraphs = storyText.split(/\n{1,2}/).map((p) => p.trim()).filter(Boolean);
+
+  // Dynamic values & brands from admin settings
+  const valuesTitle = lang === "ar" ? settings.aboutPage.valuesTitle_ar : settings.aboutPage.valuesTitle_fr;
+  const values = settings.aboutPage.values;
+  const brands = settings.aboutPage.brands;
 
   return (
     <div>
@@ -95,13 +91,13 @@ export function AboutPage() {
 
       {/* Values */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <h2 className="mb-8 text-center text-3xl font-bold text-slate-900">{t("valuesTitle")}</h2>
+        <h2 className="mb-8 text-center text-3xl font-bold text-slate-900">{valuesTitle || t("valuesTitle")}</h2>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {WHY_KEYS.map((k, i) => {
-            const Icon = WHY_ICONS[i];
+          {values.map((v, i) => {
+            const Icon = ICONS[v.icon] || Star;
             return (
               <motion.div
-                key={k}
+                key={`${v.icon}-${i}`}
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -112,8 +108,8 @@ export function AboutPage() {
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-700">
                       <Icon className="h-6 w-6" />
                     </div>
-                    <h3 className="text-base font-semibold text-slate-900">{t(`${k}Title` as any)}</h3>
-                    <p className="mt-2 text-sm text-slate-600">{t(`${k}Desc` as any)}</p>
+                    <h3 className="text-base font-semibold text-slate-900">{lang === "ar" ? v.title_ar : v.title_fr}</h3>
+                    <p className="mt-2 text-sm text-slate-600">{lang === "ar" ? v.desc_ar : v.desc_fr}</p>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -127,29 +123,25 @@ export function AboutPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <h2 className="mb-8 text-center text-3xl font-bold text-slate-900">{t("brandsTitle")}</h2>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {BRANDS.map((b, i) => {
-              const nameKey = b.key === "SilverFox" ? "brandSilverFox" : b.key === "Icanclave" ? "brandIcanclave" : "brandOwandy";
-              const descKey = b.key === "SilverFox" ? "brandSilverFoxDesc" : b.key === "Icanclave" ? "brandIcanclaveDesc" : "brandOwandyDesc";
-              return (
-                <motion.div
-                  key={b.key}
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, delay: i * 0.05 }}
-                >
-                  <Card className="overflow-hidden border-slate-200 shadow-sm">
-                    <div className={`flex h-32 items-center justify-center bg-gradient-to-br ${b.color} text-5xl`}>
-                      <span aria-hidden>{b.img}</span>
-                    </div>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold text-slate-900">{t(nameKey as any)}</h3>
-                      <p className="mt-2 text-sm text-slate-600">{t(descKey as any)}</p>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
+            {brands.map((b, i) => (
+              <motion.div
+                key={`${b.name_fr}-${i}`}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: i * 0.05 }}
+              >
+                <Card className="overflow-hidden border-slate-200 shadow-sm">
+                  <div className={`flex h-32 items-center justify-center bg-gradient-to-br ${b.color} text-5xl`}>
+                    <span aria-hidden>{b.emoji}</span>
+                  </div>
+                  <CardContent className="p-6">
+                    <h3 className="text-xl font-bold text-slate-900">{lang === "ar" ? b.name_ar : b.name_fr}</h3>
+                    <p className="mt-2 text-sm text-slate-600">{lang === "ar" ? b.desc_ar : b.desc_fr}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>

@@ -44,6 +44,8 @@ const NewsletterPanel = dynamic(() => import("./panels/NewsletterPanel").then(m 
 const LiveChatPanel = dynamic(() => import("./panels/LiveChatPanel").then(m => ({ default: m.LiveChatPanel })), { loading: () => <PanelLoader /> });
 const RealisationsPanel = dynamic(() => import("./panels/RealisationsPanel").then(m => ({ default: m.RealisationsPanel })));
 const TestimonialsPanel = dynamic(() => import("./panels/TestimonialsPanel").then(m => ({ default: m.TestimonialsPanel })));
+const LegalSettingsPanel = dynamic(() => import("./panels/LegalSettingsPanel").then(m => ({ default: m.LegalSettingsPanel })));
+const AboutSettingsPanel2 = dynamic(() => import("./panels/AboutSettingsPanel2").then(m => ({ default: m.AboutSettingsPanel2 })));
 
 interface NavItem {
   id: string;
@@ -80,8 +82,10 @@ const NAV: NavSection[] = [
     items: [
       { id: "home", label: "Accueil (Hero)", icon: Home, perm: "content.home", panel: HomeSettingsPanel },
       { id: "home-sections", label: "Accueil (Sections)", icon: Sparkles, perm: "content.home", panel: HomePageSectionsPanel },
-      { id: "about", label: "À propos", icon: Info, perm: "content.about", panel: AboutSettingsPanel },
+      { id: "about", label: "À propos (Histoire)", icon: Info, perm: "content.about", panel: AboutSettingsPanel },
+      { id: "about-values", label: "À propos (Valeurs & Marques)", icon: Sparkles, perm: "content.about", panel: AboutSettingsPanel2 },
       { id: "contact", label: "Contact & Coordonnées", icon: Phone, perm: "content.contact", panel: ContactSettingsPanel },
+      { id: "legal", label: "Mentions légales", icon: Scale, perm: "content.legal", panel: LegalSettingsPanel },
       { id: "products", label: "Produits", icon: Package, perm: "content.products", panel: ProductsPanel },
       { id: "categories", label: "Catégories", icon: Package, perm: "content.categories", panel: CategoriesPanel },
       { id: "posts", label: "Articles / Blog", icon: FileText, perm: "content.posts", panel: ArticlesPanel },

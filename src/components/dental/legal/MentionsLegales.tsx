@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { ChevronRight, ArrowLeft, FileText, Building2, User, Server, ShieldAlert, Link2, Gavel, Scale } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
-import { useCompanyInfo } from "@/lib/settings-service";
+import { useCompanyInfo, useSettings } from "@/lib/settings-service";
 import { navigate } from "@/lib/router";
 import { COMPANY } from "@/lib/types";
 
@@ -15,6 +15,8 @@ import { COMPANY } from "@/lib/types";
 export function MentionsLegales() {
   const { lang, t } = useTranslation();
   const company = useCompanyInfo();
+  const { settings } = useSettings();
+  const legal = settings.legal;
   const lastUpdate = new Date().toLocaleDateString("fr-DZ", {
     day: "2-digit",
     month: "long",
@@ -65,15 +67,15 @@ export function MentionsLegales() {
             </li>
             <li>
               <span className="font-semibold">N° d'immatriculation RCCM :</span>{" "}
-              RCCM Oran — <em>[à compléter]</em>
+              {legal.rccm || <em>[à compléter]</em>}
             </li>
             <li>
               <span className="font-semibold">N° d'article fiscal (NIF) :</span>{" "}
-              <em>[à compléter]</em>
+              {legal.nif || <em>[à compléter]</em>}
             </li>
             <li>
               <span className="font-semibold">Capital social :</span>{" "}
-              <em>[à compléter]</em>
+              {legal.capital || <em>[à compléter]</em>}
             </li>
           </ul>
         </div>
@@ -86,7 +88,7 @@ export function MentionsLegales() {
       body: (
         <p>
           Le responsable de la publication est le gérant de l'EURL {companyName},
-          à savoir <em>M. [Nom du gérant — à compléter]</em>. Il assume la
+          à savoir <em>{legal.gerant || "M. [Nom du gérant — à compléter]"}</em>. Il assume la
           pleine responsabilité du contenu publié sur ce site, conformément à
           la législation algérienne en vigueur.
         </p>
@@ -99,26 +101,26 @@ export function MentionsLegales() {
       body: (
         <div className="space-y-2">
           <p>
-            Le site est hébergé par la société <strong>Vercel Inc.</strong>,
+            Le site est hébergé par la société <strong>{legal.hebergeur}</strong>,
             fournisseur d'infrastructure cloud assurant la distribution du
             contenu à l'échelle internationale.
           </p>
           <ul className="ml-1 space-y-1">
             <li>
-              <span className="font-semibold">Hébergeur :</span> Vercel Inc.
+              <span className="font-semibold">Hébergeur :</span> {legal.hebergeur}
             </li>
             <li>
-              <span className="font-semibold">Adresse :</span> 340 S Lemon Ave #4133, Walnut, CA 91789, États-Unis
+              <span className="font-semibold">Adresse :</span> {legal.hebergeurAdresse}
             </li>
             <li>
               <span className="font-semibold">Site web :</span>{" "}
               <a
-                href="https://vercel.com"
+                href={legal.hebergeurUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-brand-700 underline-offset-2 hover:underline"
               >
-                https://vercel.com
+                {legal.hebergeurUrl}
               </a>
             </li>
           </ul>

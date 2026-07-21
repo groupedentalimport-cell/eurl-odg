@@ -94,13 +94,32 @@ export interface MapSettings {
   label_ar: string;
 }
 
+export interface LegalSettings {
+  rccm: string;
+  nif: string;
+  capital: string;
+  gerant: string;
+  hebergeur: string;
+  hebergeurAdresse: string;
+  hebergeurUrl: string;
+}
+
+export interface AboutPageSettings {
+  valuesTitle_fr: string;
+  valuesTitle_ar: string;
+  values: WhyCard[];
+  brands: Array<WhyCard & { emoji: string; color: string }>;
+}
+
 interface AllSettings {
   company: CompanySettings;
   home: HomeSettings;
   homeSections: HomeSectionsSettings;
   about: AboutSettings;
+  aboutPage: AboutPageSettings;
   stats: StatItem[];
   map: MapSettings;
+  legal: LegalSettings;
 }
 
 const DEFAULT_SETTINGS: AllSettings = {
@@ -149,6 +168,21 @@ const DEFAULT_SETTINGS: AllSettings = {
     story_fr: "EURL OUADAH DENTAL GROUPE est un importateur spécialisé en matériel dentaire, basé à Oran. Depuis plus de 15 ans, nous équipons les cabinets dentaires, cliniques et hôpitaux d'Algérie avec du matériel de qualité internationale.",
     story_ar: "مجموعة وادح لطب الأسنان هي شركة متخصصة في استيراد معدات طب الأسنان، مقرها وهران.",
   },
+  aboutPage: {
+    valuesTitle_fr: "Nos valeurs",
+    valuesTitle_ar: "قيمنا",
+    values: [
+      { title_fr: "Marques certifiées", title_ar: "علامات معتمدة", desc_fr: "Silver Fox, ICANCLAVE, OWANDY — qualité internationale.", desc_ar: "Silver Fox، ICANCLAVE، OWANDY — جودة دولية.", icon: "ShieldCheck" },
+      { title_fr: "Service après-vente", title_ar: "خدمة ما بعد البيع", desc_fr: "Pièces détachées et techniciens en Algérie.", desc_ar: "قطع غيار وفنيون في الجزائر.", icon: "Wrench" },
+      { title_fr: "Formation incluse", title_ar: "تكوين مشمول", desc_fr: "Installation et formation à la prise en main.", desc_ar: "التركيب والتكوين على الاستعمال.", icon: "GraduationCap" },
+      { title_fr: "Garantie 24 mois", title_ar: "ضمان 24 شهر", desc_fr: "Tous nos produits sont garantis 2 ans.", desc_ar: "كل منتجاتنا مضمونة سنتين.", icon: "Award" },
+    ],
+    brands: [
+      { name_fr: "Silver Fox", name_ar: "Silver Fox", desc_fr: "Fauteuils dentaires ergonomiques et fiables.", desc_ar: "كراسي أسنان مريحة وموثوقة.", emoji: "🪑", color: "from-brand-700 to-brand-900" },
+      { name_fr: "ICANCLAVE", name_ar: "ICANCLAVE", desc_fr: "Autoclaves classe B conformes EN 13060.", desc_ar: "أوتوكلاف فئة B مطابق للمعايير.", emoji: "🧼", color: "from-brand-600 to-brand-800" },
+      { name_fr: "OWANDY", name_ar: "OWANDY", desc_fr: "Radiologie numérique et capteurs haute définition.", desc_ar: "أشعة رقمية ومستشعرات عالية الدقة.", emoji: "📷", color: "from-brand-500 to-brand-700" },
+    ],
+  },
   stats: STATS,
   map: {
     lat: "35.6551",
@@ -156,6 +190,15 @@ const DEFAULT_SETTINGS: AllSettings = {
     zoom: "13",
     label_fr: "",
     label_ar: "",
+  },
+  legal: {
+    rccm: "",
+    nif: "",
+    capital: "",
+    gerant: "",
+    hebergeur: "Vercel Inc.",
+    hebergeurAdresse: "340 S Lemon Ave #4133, Walnut, CA 91789, États-Unis",
+    hebergeurUrl: "https://vercel.com",
   },
 };
 
@@ -280,7 +323,36 @@ function assemble(flat: Record<string, SettingRow>): AllSettings {
     label_ar: txt("contact.map.address_ar", "ar", DEFAULT_SETTINGS.map.label_ar),
   };
 
-  return { company, home, homeSections, about, stats, map };
+  // About page (values + brands) from about.* JSON keys
+  const aboutValuesRow = g("about.values");
+  let aboutValues: WhyCard[] = DEFAULT_SETTINGS.aboutPage.values;
+  if (aboutValuesRow?.value_json && Array.isArray(aboutValuesRow.value_json)) {
+    aboutValues = aboutValuesRow.value_json as WhyCard[];
+  }
+  const aboutBrandsRow = g("about.about_brands");
+  let aboutBrands = DEFAULT_SETTINGS.aboutPage.brands;
+  if (aboutBrandsRow?.value_json && Array.isArray(aboutBrandsRow.value_json)) {
+    aboutBrands = aboutBrandsRow.value_json as typeof aboutBrands;
+  }
+  const aboutPage: AboutPageSettings = {
+    valuesTitle_fr: txt("about.values_title_fr", "fr", DEFAULT_SETTINGS.aboutPage.valuesTitle_fr),
+    valuesTitle_ar: txt("about.values_title_ar", "ar", DEFAULT_SETTINGS.aboutPage.valuesTitle_ar),
+    values: aboutValues,
+    brands: aboutBrands,
+  };
+
+  // Legal settings from legal.* keys
+  const legal: LegalSettings = {
+    rccm: txt("legal.rccm", "fr", DEFAULT_SETTINGS.legal.rccm),
+    nif: txt("legal.nif", "fr", DEFAULT_SETTINGS.legal.nif),
+    capital: txt("legal.capital", "fr", DEFAULT_SETTINGS.legal.capital),
+    gerant: txt("legal.gerant", "fr", DEFAULT_SETTINGS.legal.gerant),
+    hebergeur: txt("legal.hebergeur", "fr", DEFAULT_SETTINGS.legal.hebergeur),
+    hebergeurAdresse: txt("legal.hebergeur_adresse", "fr", DEFAULT_SETTINGS.legal.hebergeurAdresse),
+    hebergeurUrl: txt("legal.hebergeur_url", "fr", DEFAULT_SETTINGS.legal.hebergeurUrl),
+  };
+
+  return { company, home, homeSections, about, aboutPage, stats, map, legal };
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
