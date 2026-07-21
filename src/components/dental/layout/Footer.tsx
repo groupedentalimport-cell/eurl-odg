@@ -1,6 +1,6 @@
 "use client";
 import { Phone, Mail, MapPin, Clock, Facebook, Instagram, Linkedin } from "lucide-react";
-import { useCompanyInfo } from "@/lib/settings-service";
+import { useCompanyInfo, useSettings } from "@/lib/settings-service";
 import { useTranslation } from "@/lib/i18n";
 import { useData } from "@/lib/data-service";
 import { navigate } from "@/lib/router";
@@ -8,7 +8,12 @@ import { navigate } from "@/lib/router";
 export function Footer() {
   const { t, lang } = useTranslation();
   const COMPANY = useCompanyInfo();
+  const { settings } = useSettings();
   const { categories } = useData();
+
+  const tagline = lang === "ar" ? settings.footer.tagline_ar : settings.footer.tagline_fr;
+  const bottomText = lang === "ar" ? settings.footer.bottomText_ar : settings.footer.bottomText_fr;
+  const quickLinks = settings.footer.quickLinks;
 
   return (
     <footer className="mt-auto border-t border-slate-200 bg-slate-900 text-slate-300">
@@ -26,7 +31,7 @@ export function Footer() {
                 {lang === "ar" ? COMPANY.nameAr : COMPANY.name}
               </span>
             </div>
-            <p className="text-xs text-slate-400">{COMPANY.tagline[lang]}</p>
+            <p className="text-xs text-slate-400">{tagline || COMPANY.tagline[lang]}</p>
             <div className="flex gap-3 pt-1">
               {COMPANY.facebook && <a href={COMPANY.facebook} aria-label="Facebook" className="text-slate-400 hover:text-white"><Facebook className="h-5 w-5" /></a>}
               {COMPANY.instagram && <a href={COMPANY.instagram} aria-label="Instagram" className="text-slate-400 hover:text-white"><Instagram className="h-5 w-5" /></a>}
@@ -38,14 +43,13 @@ export function Footer() {
           <div>
             <h3 className="mb-3 text-sm font-semibold text-white">{t("quickLinks")}</h3>
             <ul className="space-y-2 text-sm">
-              <li><button onClick={() => navigate("catalogue")} className="hover:text-brand-400">{t("catalogue")}</button></li>
-              <li><button onClick={() => navigate("configurateur")} className="hover:text-brand-400">{t("configuratorNav")}</button></li>
-              <li><button onClick={() => navigate("financement")} className="hover:text-brand-400">{t("financing")}</button></li>
-              <li><button onClick={() => navigate("blog")} className="hover:text-brand-400">{t("blog")}</button></li>
-              <li><button onClick={() => navigate("apropos")} className="hover:text-brand-400">{t("about")}</button></li>
-              <li><button onClick={() => navigate("realisations")} className="hover:text-brand-400">{t("realisationsTitle")}</button></li>
-              <li><button onClick={() => navigate("contact")} className="hover:text-brand-400">{t("contact")}</button></li>
-              <li><button onClick={() => navigate("comparer")} className="hover:text-brand-400">{t("compare")}</button></li>
+              {quickLinks.map((link) => (
+                <li key={link.path}>
+                  <button onClick={() => navigate(link.path)} className="hover:text-brand-400">
+                    {lang === "ar" ? link.label_ar : link.label_fr}
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -89,7 +93,7 @@ export function Footer() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-2 border-t border-slate-700 pt-6 text-xs text-slate-400 sm:flex-row">
           <p>© {new Date().getFullYear()} {COMPANY.name}. {t("rights")}</p>
-          <p>Oran, {COMPANY.country} — {COMPANY.tagline[lang]}</p>
+          <p>{bottomText || `${COMPANY.city}, ${COMPANY.country} — ${tagline || COMPANY.tagline[lang]}`}</p>
         </div>
 
         {/* Legal links (Task LEGAL-1) */}

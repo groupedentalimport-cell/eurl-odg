@@ -111,6 +111,20 @@ export interface AboutPageSettings {
   brands: Array<WhyCard & { emoji: string; color: string }>;
 }
 
+export interface FooterLink {
+  label_fr: string;
+  label_ar: string;
+  path: string;
+}
+
+export interface FooterSettings {
+  tagline_fr: string;
+  tagline_ar: string;
+  bottomText_fr: string;
+  bottomText_ar: string;
+  quickLinks: FooterLink[];
+}
+
 interface AllSettings {
   company: CompanySettings;
   home: HomeSettings;
@@ -120,6 +134,7 @@ interface AllSettings {
   stats: StatItem[];
   map: MapSettings;
   legal: LegalSettings;
+  footer: FooterSettings;
 }
 
 const DEFAULT_SETTINGS: AllSettings = {
@@ -199,6 +214,22 @@ const DEFAULT_SETTINGS: AllSettings = {
     hebergeur: "Vercel Inc.",
     hebergeurAdresse: "340 S Lemon Ave #4133, Walnut, CA 91789, États-Unis",
     hebergeurUrl: "https://vercel.com",
+  },
+  footer: {
+    tagline_fr: "Importateur de matériel dentaire",
+    tagline_ar: "مستورد معدات طب الأسنان",
+    bottomText_fr: "",
+    bottomText_ar: "",
+    quickLinks: [
+      { label_fr: "Catalogue", label_ar: "الكتالوج", path: "catalogue" },
+      { label_fr: "Configurateur", label_ar: "المكوّن", path: "configurateur" },
+      { label_fr: "Financement", label_ar: "التمويل", path: "financement" },
+      { label_fr: "Blog", label_ar: "المدونة", path: "blog" },
+      { label_fr: "À propos", label_ar: "من نحن", path: "apropos" },
+      { label_fr: "Réalisations", label_ar: "إنجازاتنا", path: "realisations" },
+      { label_fr: "Contact", label_ar: "اتصل بنا", path: "contact" },
+      { label_fr: "Comparer", label_ar: "مقارنة", path: "comparer" },
+    ],
   },
 };
 
@@ -352,7 +383,21 @@ function assemble(flat: Record<string, SettingRow>): AllSettings {
     hebergeurUrl: txt("legal.hebergeur_url", "fr", DEFAULT_SETTINGS.legal.hebergeurUrl),
   };
 
-  return { company, home, homeSections, about, aboutPage, stats, map, legal };
+  // Footer settings from footer.* keys
+  const footerLinksRow = g("footer.quick_links");
+  let quickLinks = DEFAULT_SETTINGS.footer.quickLinks;
+  if (footerLinksRow?.value_json && Array.isArray(footerLinksRow.value_json)) {
+    quickLinks = footerLinksRow.value_json as FooterLink[];
+  }
+  const footer: FooterSettings = {
+    tagline_fr: txt("footer.tagline_fr", "fr", DEFAULT_SETTINGS.footer.tagline_fr),
+    tagline_ar: txt("footer.tagline_ar", "ar", DEFAULT_SETTINGS.footer.tagline_ar),
+    bottomText_fr: txt("footer.bottom_text_fr", "fr", DEFAULT_SETTINGS.footer.bottomText_fr),
+    bottomText_ar: txt("footer.bottom_text_ar", "ar", DEFAULT_SETTINGS.footer.bottomText_ar),
+    quickLinks,
+  };
+
+  return { company, home, homeSections, about, aboutPage, stats, map, legal, footer };
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {

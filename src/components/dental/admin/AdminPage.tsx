@@ -46,6 +46,7 @@ const RealisationsPanel = dynamic(() => import("./panels/RealisationsPanel").the
 const TestimonialsPanel = dynamic(() => import("./panels/TestimonialsPanel").then(m => ({ default: m.TestimonialsPanel })));
 const LegalSettingsPanel = dynamic(() => import("./panels/LegalSettingsPanel").then(m => ({ default: m.LegalSettingsPanel })));
 const AboutSettingsPanel2 = dynamic(() => import("./panels/AboutSettingsPanel2").then(m => ({ default: m.AboutSettingsPanel2 })));
+const FooterSettingsPanel = dynamic(() => import("./panels/FooterSettingsPanel").then(m => ({ default: m.FooterSettingsPanel })));
 
 interface NavItem {
   id: string;
@@ -86,6 +87,7 @@ const NAV: NavSection[] = [
       { id: "about-values", label: "À propos (Valeurs & Marques)", icon: Sparkles, perm: "content.about", panel: AboutSettingsPanel2 },
       { id: "contact", label: "Contact & Coordonnées", icon: Phone, perm: "content.contact", panel: ContactSettingsPanel },
       { id: "legal", label: "Mentions légales", icon: Scale, perm: "content.legal", panel: LegalSettingsPanel },
+      { id: "footer", label: "Footer", icon: Phone, perm: "content.home", panel: FooterSettingsPanel },
       { id: "products", label: "Produits", icon: Package, perm: "content.products", panel: ProductsPanel },
       { id: "categories", label: "Catégories", icon: Package, perm: "content.categories", panel: CategoriesPanel },
       { id: "posts", label: "Articles / Blog", icon: FileText, perm: "content.posts", panel: ArticlesPanel },

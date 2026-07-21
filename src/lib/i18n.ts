@@ -718,6 +718,14 @@ export const T = {
   legalHostCompany: { fr: "Nom de l'hébergeur", ar: "اسم المستضيف" },
   legalHostAddress: { fr: "Adresse de l'hébergeur", ar: "عنوان المستضيف" },
   legalHostUrl: { fr: "Site web de l'hébergeur", ar: "موقع المستضيف" },
+  // === Footer settings admin ===
+  footerTaglineTitle: { fr: "Slogan du footer", ar: "شعار التذييل" },
+  footerTaglineDesc: { fr: "Texte descriptif affiché sous le logo dans le footer.", ar: "النص التوضيحي الظهر أسفل الشعار في التذييل." },
+  footerTagline: { fr: "Slogan", ar: "الشعار" },
+  footerBottomText: { fr: "Texte du bas", ar: "النص السفلي" },
+  footerQuickLinksTitle: { fr: "Liens rapides", ar: "روابط سريعة" },
+  footerQuickLinksDesc: { fr: "Liens affichés dans la colonne 'Liens rapides' du footer.", ar: "الروابط الظاهرة في عمود 'روابط سريعة' في التذييل." },
+  footerAddLink: { fr: "Ajouter un lien", ar: "أضف رابطاً" },
   // === Global header search (Task SEARCH-1) ===
   searchPlaceholder: { fr: "Rechercher un produit, un article...", ar: "البحث عن منتج، مقال..." },
   searchNoResults: { fr: "Aucun résultat", ar: "لا توجد نتائج" },

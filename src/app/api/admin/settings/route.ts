@@ -226,6 +226,25 @@ function translateToFlat(key: string, value: Record<string, unknown>): FlatUpser
         upserts.push({ key: f.k, value_fr: f.val || null, value_ar: null, category: "legal", label: f.label, type: "text" });
       }
     }
+  } else if (key === "footer") {
+    // Footer: tagline, bottom text, quick links
+    const v = value as { tagline_fr?: string; tagline_ar?: string; bottomText_fr?: string; bottomText_ar?: string; quickLinks?: unknown[] };
+    if (v.tagline_fr !== undefined) {
+      upserts.push({ key: "footer.tagline_fr", value_fr: v.tagline_fr || null, value_ar: null, category: "footer", label: "Slogan (FR)", type: "text" });
+    }
+    if (v.tagline_ar !== undefined) {
+      upserts.push({ key: "footer.tagline_ar", value_fr: null, value_ar: v.tagline_ar || null, category: "footer", label: "Slogan (AR)", type: "text" });
+    }
+    if (v.bottomText_fr !== undefined) {
+      upserts.push({ key: "footer.bottom_text_fr", value_fr: v.bottomText_fr || null, value_ar: null, category: "footer", label: "Texte bas (FR)", type: "text" });
+    }
+    if (v.bottomText_ar !== undefined) {
+      upserts.push({ key: "footer.bottom_text_ar", value_fr: null, value_ar: v.bottomText_ar || null, category: "footer", label: "Texte bas (AR)", type: "text" });
+    }
+    if (v.quickLinks !== undefined) {
+      upserts.push({ key: "footer.quick_links", value_fr: null, value_ar: null, category: "footer", label: "Liens rapides", type: "json" });
+      (upserts as any).__footerLinksArray = v.quickLinks;
+    }
   } else if (key === "home_sections") {
     // Homepage sections: Why Us cards + hero brands
     // Stored as JSON rows: home.why_cards, home.hero_brands, home.why_title_fr, home.why_title_ar
@@ -303,6 +322,7 @@ export async function PUT(request: NextRequest) {
   const heroBrandsArray = (upserts as any).__heroBrandsArray as unknown[] | undefined;
   const aboutValuesArray = (upserts as any).__aboutValuesArray as unknown[] | undefined;
   const aboutBrandsArray = (upserts as any).__aboutBrandsArray as unknown[] | undefined;
+  const footerLinksArray = (upserts as any).__footerLinksArray as unknown[] | undefined;
 
   try {
     // Build the upsert rows. For json-type rows, populate value_json with the brands array.
@@ -312,6 +332,7 @@ export async function PUT(request: NextRequest) {
       if (u.type === "json" && u.key === "home.hero_brands" && heroBrandsArray) valueJson = heroBrandsArray;
       if (u.type === "json" && u.key === "about.values" && aboutValuesArray) valueJson = aboutValuesArray;
       if (u.type === "json" && u.key === "about.about_brands" && aboutBrandsArray) valueJson = aboutBrandsArray;
+      if (u.type === "json" && u.key === "footer.quick_links" && footerLinksArray) valueJson = footerLinksArray;
       return {
         key: u.key,
         value_fr: u.value_fr,
