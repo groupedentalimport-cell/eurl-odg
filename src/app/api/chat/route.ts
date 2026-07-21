@@ -14,8 +14,6 @@ const LANG_WORD: Record<ChatLang, string> = {
 
 // ---------------------------------------------------------------------------
 // System prompt assembly — uses LIVE company info from site_settings
-// (the same source the admin Contact tab edits), NOT the hardcoded COMPANY
-// constant. Falls back to COMPANY only if Supabase is unreachable.
 // ---------------------------------------------------------------------------
 function buildSystemPrompt(
   catalogueCtx: string,
@@ -52,120 +50,98 @@ function buildSystemPrompt(
 }
 
 // ---------------------------------------------------------------------------
-// Canned fallback — richer keyword routing (kept as a safety net).
-// Also uses LIVE company info so the phone/email shown is always current.
+// Canned fallback — keyword routing (safety net when LLM is unavailable)
 // ---------------------------------------------------------------------------
 function cannedReply(userMessage: string, c: LiveCompanyInfo): string {
   const msg = (userMessage || "").toLowerCase();
 
-  // Greetings
   if (/(bonjour|salam|salut|hello|hi|coucou|مرحبا|السلام|صباح|مساء)/.test(msg)) {
     return `Bonjour ! Je suis l'assistant ${c.name}. Nous proposons des fauteuils Silver Fox, des autoclaves ICANCLAVE et des solutions de radiologie OWANDY. Comment puis-je vous aider aujourd'hui ?`;
   }
-
-  // Fauteuils / chairs
   if (/fauteuil|chair|كرسي|كراسى|siège/.test(msg)) {
     return "Nous proposons plusieurs fauteuils dentaires Silver Fox : classique (8000C), implant (8000C Implant), pro (8000C pro) et basique (8000B-CRS0). Tous garantis 24 mois avec installation et formation. Souhaitez-vous recevoir un devis ?";
   }
-
-  // Autoclaves / stérilisation
   if (/autoclave|stéril|steril|تعقيم|أوتوكلاف/.test(msg)) {
     return "Nos autoclaves ICANCLAVE classe B : 18 L (STE-18-D) pour cabinets, et 45 L (STE-45-T) pour flux importants. Conformes à la norme EN 13060. Voulez-vous un devis personnalisé ?";
   }
-
-  // Radiologie / OWANDY
   if (/radio|radiolog|owandy|أشعة|اشعة|panoramique|ceph|céphalo/.test(msg)) {
     return "OWANDY propose : radio murale AC (standard), DC (faible dose) et unité panoramique 3D + céphalométrie I-MAX 3D XPRO CEPH. Filtrez la dose patient avec qualité d'image HD. Demandez un devis !";
   }
-
-  // Prix / devis
   if (/devis|quote|prix|price|سعر|ثمن|عرض|tarif|coût|cout|combien/.test(msg)) {
     return `Avec plaisir ! Pour préparer votre devis, indiquez : votre type d'établissement (cabinet/clinique/centre), le ou les produits qui vous intéressent, et la quantité. Vous pouvez aussi utiliser le formulaire de contact (#/contact) ou demander un devis via le panier (#/devis).`;
   }
-
-  // Contact / phone
   if (/contact|téléphone|telephone|phone|numéro|numero|اتصال|هاتف|jawal|جوال/.test(msg)) {
     return `Vous pouvez nous contacter au ${c.phone}${c.phone2 ? ` (ou ${c.phone2})` : ""} ou par email à ${c.email}. Adresse : ${c.address_fr}, ${c.city}.`;
   }
-
-  // Livraison / shipping
   if (/livraison|shipping|delivery|expédition|expedition|توصيل|شحن|délai/.test(msg)) {
     return "Nous livrons dans toute l'Algérie (58 wilayas). Délais habituels : 2 à 7 jours ouvrés selon la wilaya. Frais de livraison sur devis selon le produit et la destination.";
   }
-
-  // Garantie
   if (/garantie|warranty|ضمان/.test(msg)) {
     return `Tous nos produits sont garantis 24 mois (pièces et main-d'œuvre). Le SAV ${c.name} assure l'installation, la formation et le suivi. Pour toute réclamation, contactez le ${c.phone}.`;
   }
-
-  // Formation / installation
   if (/formation|training|install|تدريب|تركيب|تثبيت/.test(msg)) {
     return "L'installation et la formation sont incluses pour tous nos fauteuils Silver Fox, autoclaves ICANCLAVE et équipements OWANDY. Nos techniciens se déplacent dans toute l'Algérie.";
   }
-
-  // Brands (Silver Fox / ICANCLAVE / OWANDY)
   if (/(silver\s*fox|icanclave|owandy)/.test(msg)) {
     return "Silver Fox = fauteuils dentaires, ICANCLAVE = autoclaves classe B, OWANDY = radiologie. Quelle gamme vous intéresse ? Je peux vous orienter vers le produit adapté à votre pratique.";
   }
-
-  // Horaires
   if (/horaires|heure|ouvert|temps|أوقات|دوام/.test(msg)) {
     return `Nos horaires : ${c.hours_fr}. Nous sommes basés à ${c.city}, ${c.country}.`;
   }
-
-  // Default
   return `Bonjour ! Je suis l'assistant ${c.name}. Nous proposons des fauteuils Silver Fox, des autoclaves ICANCLAVE et des solutions de radiologie OWANDY. Pour un conseil personnalisé ou un devis, contactez-nous via #/contact ou au ${c.phone}.`;
 }
 
 // ---------------------------------------------------------------------------
-// LLM call with timeout
+// Google Gemini API call (OpenAI-compatible endpoint, no SDK needed)
 // ---------------------------------------------------------------------------
 const LLM_TIMEOUT_MS = 30_000;
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
 
-async function callZaiLLM(messages: Array<{ role: string; content: string }>): Promise<string | null> {
-  // Indirect dynamic import to avoid Turbopack static-resolution warnings.
-  const dynamicImport = new Function("m", "return import(m)") as (m: string) => Promise<any>;
-  const ZAIModule = await dynamicImport("z-ai-web-dev-sdk");
-  const ZAI = ZAIModule?.default || ZAIModule;
+async function callGeminiLLM(messages: Array<{ role: string; content: string }>): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn("[chat] GEMINI_API_KEY not set — falling back to canned responses.");
+    return null;
+  }
 
-  // The SDK's ZAI.create() looks for a .z-ai-config FILE in cwd/home//etc —
-  // which doesn't exist on Vercel. So we instantiate the ZAI class directly
-  // with config from environment variables (set on Vercel + locally in .env).
-  //
-  // Required env vars:
-  //   ZAI_BASE_URL   — e.g. https://internal-api.z.ai/v1
-  //   ZAI_API_KEY    — the API key
-  //   ZAI_TOKEN      — JWT token (optional but recommended)
-  //   ZAI_USER_ID    — user id (optional)
-  //   ZAI_CHAT_ID    — chat session id (optional)
-  const config: Record<string, string> = {
-    baseUrl: process.env.ZAI_BASE_URL || "https://internal-api.z.ai/v1",
-    apiKey: process.env.ZAI_API_KEY || "Z.ai",
-  };
-  if (process.env.ZAI_TOKEN) config.token = process.env.ZAI_TOKEN;
-  if (process.env.ZAI_USER_ID) config.userId = process.env.ZAI_USER_ID;
-  if (process.env.ZAI_CHAT_ID) config.chatId = process.env.ZAI_CHAT_ID;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
-  // Instantiate directly — bypasses the file-based loadConfig() that fails on Vercel
-  const zai = new ZAI(config);
+  try {
+    const res = await fetch(`${GEMINI_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gemini-2.0-flash",
+        messages,
+        temperature: 0.7,
+        max_tokens: 512,
+      }),
+      signal: controller.signal,
+    });
 
-  const completionPromise = zai.chat.completions.create({
-    messages,
-    thinking: { type: "disabled" },
-  });
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    const t = setTimeout(() => {
-      reject(new Error(`LLM call timed out after ${LLM_TIMEOUT_MS}ms`));
-    }, LLM_TIMEOUT_MS);
-    if (typeof t === "object" && t && "unref" in t && typeof (t as any).unref === "function") {
-      (t as any).unref();
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error(`[chat] Gemini API error ${res.status}: ${errText.slice(0, 200)}`);
+      return null;
     }
-  });
 
-  const completion = await Promise.race([completionPromise, timeoutPromise]);
-  const reply: string | undefined = completion?.choices?.[0]?.message?.content;
-  return reply?.trim() || null;
+    const data = await res.json();
+    const reply: string | undefined = data?.choices?.[0]?.message?.content;
+    return reply?.trim() || null;
+  } catch (err: any) {
+    if (err?.name === "AbortError") {
+      console.error(`[chat] Gemini call timed out after ${LLM_TIMEOUT_MS}ms`);
+    } else {
+      console.error("[chat] Gemini call failed:", err?.message || err);
+    }
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -187,10 +163,8 @@ export async function POST(req: NextRequest) {
 
   const lang: ChatLang = body?.lang === "ar" ? "ar" : "fr";
 
-  // 2. Build history (last 8 messages, drop empty ones)
-  const history: Array<{ role: "user" | "assistant"; content: string }> = Array.isArray(
-    body?.history
-  )
+  // 2. Build history (last 8 messages)
+  const history: Array<{ role: "user" | "assistant"; content: string }> = Array.isArray(body?.history)
     ? body.history
         .slice(-8)
         .map((m: any) => ({
@@ -200,25 +174,21 @@ export async function POST(req: NextRequest) {
         .filter((m: { content: string }) => m.content.length > 0)
     : [];
 
-  // 3. Fetch LIVE company info from site_settings (cached 5 min).
-  //    This is the SAME source the admin Contact tab edits, so the chatbot
-  //    always uses the current phone/email/address — never the hardcoded
-  //    COMPANY constant.
+  // 3. Fetch LIVE company info from site_settings
   const company = await getLiveCompanyInfo();
 
-  // 4. Build system prompt with live catalogue context (cached 5 min)
+  // 4. Build system prompt with live catalogue context
   let catalogueCtx: string;
   try {
     catalogueCtx = await buildCatalogueContext();
   } catch (err: any) {
     console.error("[chat] buildCatalogueContext threw:", err?.message || err);
-    catalogueCtx =
-      "CATALOGUE ODG (mode dégradé): Silver Fox, ICANCLAVE, OWANDY — consultez #/catalogue.";
+    catalogueCtx = "CATALOGUE ODG (mode dégradé): Silver Fox, ICANCLAVE, OWANDY — consultez #/catalogue.";
   }
 
   const systemPrompt = buildSystemPrompt(catalogueCtx, lang, company);
 
-  // 5. Try the LLM
+  // 5. Try the LLM (Google Gemini)
   try {
     const messages = [
       { role: "system", content: systemPrompt },
@@ -226,24 +196,24 @@ export async function POST(req: NextRequest) {
       { role: "user", content: message },
     ];
 
-    const reply = await callZaiLLM(messages);
+    const reply = await callGeminiLLM(messages);
 
     if (reply) {
-      return NextResponse.json({ reply, provider: "zai" });
+      return NextResponse.json({ reply, provider: "gemini" });
     }
 
-    // Empty reply → fall back to canned (with live company info)
+    // Empty reply → fall back to canned
     return NextResponse.json({
       reply: cannedReply(message, company),
       provider: "canned",
       note: "LLM returned empty content; using canned response.",
     });
   } catch (err: any) {
-    console.error("[chat] z-ai-web-dev-sdk failed:", err?.message || err);
+    console.error("[chat] LLM call failed:", err?.message || err);
     return NextResponse.json({
       reply: cannedReply(message, company),
       provider: "canned",
-      note: "LLM SDK unavailable or timed out; using canned response.",
+      note: "LLM unavailable or timed out; using canned response.",
     });
   }
 }

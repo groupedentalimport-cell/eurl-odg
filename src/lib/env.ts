@@ -52,8 +52,8 @@ const serverSchema = z.object({
   SMTP_PASS: z.string().min(1),
   EMAIL_FROM: z.string().min(1),
 
-  // ---- Z.AI chatbot ----
-  ZAI_API_KEY: z.string().min(1),
+  // ---- Chatbot (Google Gemini) ----
+  GEMINI_API_KEY: z.string().optional(),
 
   // ---- Misc ----
   REVALIDATE_TOKEN: z.string().optional(),
@@ -114,7 +114,7 @@ function loadServer() {
     SMTP_USER: dev.SMTP_USER || "dev",
     SMTP_PASS: dev.SMTP_PASS || "dev",
     EMAIL_FROM: dev.EMAIL_FROM || "dev@localhost",
-    ZAI_API_KEY: dev.ZAI_API_KEY || "dev-zai-key",
+    GEMINI_API_KEY: dev.GEMINI_API_KEY || "",
   });
 }
 
