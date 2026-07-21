@@ -192,6 +192,7 @@ export const T = {
   settingsContact: { fr: "Contact", ar: "اتصل بنا" },
   settings: { fr: "Paramètres", ar: "الإعدادات" },
   edit: { fr: "Modifier", ar: "تعديل" },
+  add: { fr: "Ajouter", ar: "إضافة" },
   create: { fr: "Créer", ar: "إنشاء" },
   delete: { fr: "Supprimer", ar: "حذف" },
   save: { fr: "Enregistrer", ar: "حفظ" },
