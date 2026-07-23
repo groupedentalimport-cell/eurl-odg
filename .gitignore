@@ -22,4 +22,4 @@ mini-services/
 .zscripts/
 components.json
 tailwind.config.ts
-eslint.config.mjs
+
