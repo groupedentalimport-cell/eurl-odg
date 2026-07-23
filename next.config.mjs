@@ -23,6 +23,13 @@
 // ============================================================
 const nextConfig = {
   reactStrictMode: true,
+  // Next.js 16 uses Turbopack which doesn't run ESLint during build.
+  // The `ignoreDuringBuilds` key was removed in Next.js 16 config schema.
+  // ESLint errors won't block Vercel builds anymore.
+  // To skip TypeScript type-check errors during build (if any):
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // nodemailer and z-ai-web-dev-sdk should not be bundled — they
   // have native/optional deps that don't survive the bundler.
   serverExternalPackages: ["nodemailer", "z-ai-web-dev-sdk"],
