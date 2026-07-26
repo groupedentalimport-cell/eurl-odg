@@ -9,7 +9,6 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@netlify/next": "^1.4.9",
     "@radix-ui/react-avatar": "1.2.0",
     "@radix-ui/react-checkbox": "1.3.5",
     "@radix-ui/react-dialog": "1.1.17",
