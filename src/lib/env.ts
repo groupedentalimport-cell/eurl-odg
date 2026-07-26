@@ -124,13 +124,13 @@ function loadPublic() {
   // In production, log a warning and use the defaults — don't crash the
   // build. The actual runtime requests that need the missing env vars
   // will fail with a clear error message. This makes the build resilient
-  // to operators forgetting to set NEXT_PUBLIC_* vars on Vercel.
+  // to operators forgetting to set NEXT_PUBLIC_* vars on Netlify.
   const missing = parsed.error.issues
     .map((i) => i.path.join("."))
     .join(", ");
   console.warn(
     `[env] Missing public env vars in ${isProd ? "production" : "dev"}: ${missing}. ` +
-      `Using fallback values where available. Configure them in Vercel → Settings → Environment Variables.`
+      `Using fallback values where available. Configure them in Netlify → Settings → Environment Variables.`
   );
   // Re-parse with defaults applied — the .default() in publicSchema
   // only kicks in when the field is `undefined`, so missing required
@@ -140,7 +140,7 @@ function loadPublic() {
     return publicSchema.parse({
       NEXT_PUBLIC_SITE_URL:
         process.env.NEXT_PUBLIC_SITE_URL ||
-        "https://ouadah-dental-groupe.vercel.app",
+        "https://ouadah-dental-groupe.netlify.app",
       NEXT_PUBLIC_SUPABASE_URL:
         process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY:
@@ -152,7 +152,7 @@ function loadPublic() {
     return {
       NEXT_PUBLIC_SITE_URL:
         process.env.NEXT_PUBLIC_SITE_URL ||
-        "https://ouadah-dental-groupe.vercel.app",
+        "https://ouadah-dental-groupe.netlify.app",
       NEXT_PUBLIC_SUPABASE_URL:
         process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY:
@@ -190,10 +190,10 @@ export const publicEnv = new Proxy(
 
 /** Convenience: site URL without trailing slash. Reads from publicEnv
  * lazily — uses NEXT_PUBLIC_SITE_URL if set, otherwise the default. */
-export const SITE_URL = (publicEnv.NEXT_PUBLIC_SITE_URL || "https://ouadah-dental-groupe.vercel.app").replace(
+export const SITE_URL = (publicEnv.NEXT_PUBLIC_SITE_URL || "https://ouadah-dental-groupe.netlify.app").replace(
   /\/$/,
   ""
 );
 
-/** True when running on Vercel production. */
+/** True when running in production. */
 export const isProduction = isProd;

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = "https://ouadah-dental-groupe.vercel.app";
+const SITE_URL = "https://ouadah-dental-groupe.netlify.app";
 
 /**
  * robots.txt for OUADAH DENTAL GROUPE.

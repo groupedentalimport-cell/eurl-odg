@@ -3,7 +3,7 @@ import { getServerClient } from "@/lib/supabase";
 import { COMPANY } from "@/lib/types";
 
 // Production URL — used as the canonical origin for every sitemap entry.
-const SITE_URL = "https://ouadah-dental-groupe.vercel.app";
+const SITE_URL = "https://ouadah-dental-groupe.netlify.app";
 
 /**
  * Revalidate the sitemap at most once per hour so newly-published products
