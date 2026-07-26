@@ -1,32 +1,7 @@
 /** @type {import('next').NextConfig} */
-// ============================================================
-// REFACTOR (refactor/total — audit §5.8, §5.9, §2.12)
-// ============================================================
-// Removed:
-//   - `images: { unoptimized: true }` — re-enabled Next.js image
-//     optimizer for proper responsive images + WebP/AVIF.
-//   - `generateBuildId: () => 'odg-build-${Date.now()}'` — Next.js
-//     already content-hashes chunk filenames; the custom build ID
-//     was invalidating ALL static chunks on every deploy, defeating
-//     the CDN cache and breaking Vercel ISR.
-//   - `X-XSS-Protection: 1; mode=block` — deprecated and unsafe in
-//     old browsers (can introduce XSS bypasses).
-// Added:
-//   - `Strict-Transport-Security` with preload.
-//   - `Content-Security-Policy` — strict, no `unsafe-eval`.
-//     Note: `'unsafe-inline'` for `script-src` is required by
-//     Next.js's inline runtime; tighten further only after migrating
-//     to nonces (next 15+ supports per-route nonces).
-//   - `serverExternalPackages` so `nodemailer` and `z-ai-web-dev-sdk`
-//     are not bundled into the server chunk (smaller deploy, faster
-//     cold start).
-// ============================================================
 const nextConfig = {
   reactStrictMode: true,
-  // Next.js 16 uses Turbopack which doesn't run ESLint during build.
-  // The `ignoreDuringBuilds` key was removed in Next.js 16 config schema.
-  // ESLint errors won't block Vercel builds anymore.
-  // To skip TypeScript type-check errors during build (if any):
+  // Skip TypeScript type-check errors during build (if any):
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -53,7 +28,7 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+              "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data: https://fonts.gstatic.com",
@@ -67,9 +42,6 @@ const nextConfig = {
       },
       {
         // Cache ALL static assets immutably (1 year).
-        // This covers JS, CSS, fonts, images in /_next/static/.
-        // Vercel/Next.js automatically sets the correct Content-Type
-        // per file extension — we do NOT override it here.
         source: "/_next/static/(.*)",
         headers: [
           {

@@ -2,27 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import { COMPANY } from "@/lib/types";
-import { Analytics } from "@vercel/analytics/react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SITE_URL } from "@/lib/env";
-
-/**
- * Client-side wrapper around Vercel <Analytics /> that skips admin,
- * portal and client routes (audit §2.13). Admin page views contain
- * sensitive context (panel names, ids in URL) and shouldn't be sent
- * to Vercel Analytics.
- */
-function RouteAwareAnalytics() {
-  // Rendered as a Server Component, but <Analytics /> itself injects
-  // a client script. We can't read the URL here at the server level
-  // for a SPA, so we wrap it in a tiny client-side guard.
-  // Vercel Analytics respects the `path` filter at runtime via
-  // beforeSend — using that hook here would require a client wrapper.
-  // For simplicity we just render <Analytics /> and rely on the
-  // service-worker gate (which already excludes /admin and /portal
-  // from caching). A future iteration can add beforeSend.
-  return <Analytics />;
-}
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -219,14 +200,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ErrorBoundary>
           <Providers>{children}</Providers>
         </ErrorBoundary>
-        {/* REFACTOR (refactor/total — audit §2.13, §8.4):
-            - Vercel <Analytics /> is now gated on non-admin routes so admin
-              page views aren't sent to Vercel Analytics (privacy + cost).
-            - Service worker registration is gated on non-admin routes so a
-              stale SW cache can't serve an old admin HTML after a deploy.
-            - SW is also skipped on localhost to avoid cache pollution
-              during `next dev`. */}
-        <RouteAwareAnalytics />
+        {/* Service worker registration is gated on non-admin routes so a
+            stale SW cache can't serve an old admin HTML after a deploy.
+            SW is also skipped on localhost to avoid cache pollution
+            during `next dev`. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `if('serviceWorker' in navigator && location.pathname.indexOf('/admin')!==0 && location.pathname.indexOf('/portal')!==0 && location.hostname!=='localhost'){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`,

@@ -32,7 +32,7 @@ const serverSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z
     .string()
     .url()
-    .default("https://ouadah-dental-groupe.vercel.app"),
+    .default("https://ouadah-dental-groupe.netlify.app"),
 
   // ---- Supabase ----
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
@@ -67,7 +67,7 @@ const publicSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z
     .string()
     .url()
-    .default("https://ouadah-dental-groupe.vercel.app"),
+    .default("https://ouadah-dental-groupe.netlify.app"),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
 });
@@ -87,7 +87,7 @@ function loadServer() {
       .join(", ");
     throw new Error(
       `[env] Missing required server env vars in production: ${missing}. ` +
-        `Configure them in your hosting provider (Vercel → Project → Settings → Environment Variables).`
+        `Configure them in your hosting provider (Netlify → Site → Settings → Environment Variables).`
     );
   }
 
