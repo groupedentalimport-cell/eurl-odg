@@ -1,0 +1,94 @@
+# OUADAH DENTAL GROUPE (ODG)
+
+> Importateur et distributeur de matériel dentaire en Algérie. Spécialiste des fauteuils Silver Fox, autoclaves ICANCLAVE, radiologie OWANDY et scanners Launca. Basé à Oran, livraison dans toute l'Algérie. Service après-vente, formation et financement inclus.
+
+## Identité de l'entreprise
+
+- **Nom officiel** : OUADAH DENTAL GROUPE (EURL)
+- **Nom arabe** : مجموعة وادح لطب الأسنان
+- **Sigle** : ODG
+- **Forme juridique** : EURL (Entreprise Unipersonnelle à Responsabilité Limitée)
+- **Secteur** : Importation et distribution de matériel dentaire
+- **Zone d'activité** : Algérie entière (siège à Oran)
+- **Dirigeant** : M. Ouadah Djaouad, Manager
+- **Adresse** : Cité 1000 Logements, Bt 4, Oran, 31000, Algérie
+- **Téléphone** : +213 540 00 00 00 / +213 41 00 00 00
+- **Email** : contact@odg-dz.com
+- **Site web** : https://ouadah-dental-groupe.netlify.app
+- **Horaires** : Dimanche–Jeudi, 8h00–17h00
+
+## Marques distribuées
+
+- **Silver Fox** — fauteuils dentaires (modèles Classic, Pro 8000C, Implant)
+- **ICANCLAVE** — autoclaves dentaires classe B (18L, 45L)
+- **OWANDY** — radiologie dentaire (radio mural, capteur intra-oral, panoramique 3D)
+- **Launca** — scanners intra-oraux
+
+## Catalogue produits (9 références)
+
+### Fauteuils dentaires
+- Fauteuil dentaire basique
+- Fauteuil dentaire classique
+- Fauteuil dentaire pro (Silver Fox 8000C Pro)
+- Fauteuil dentaire Implant (avec chariot roulant pour implantologie)
+
+### Autoclaves
+- Autoclave 18L (cabinets 1-2 fauteuils)
+- Autoclave 45L (cliniques, 3+ fauteuils)
+
+### Radiologie
+- Radio mural standard
+- Radio murale nouvelle génération
+- Unité de radiologie panoramique 3D et céphalométrie
+
+## Services
+
+- **Vente et installation** : livraison et mise en service dans toute l'Algérie
+- **Formation** : incluse à chaque achat (2h à 1 journée selon l'équipement)
+- **Maintenance préventive et curative** : techniciens à Oran, déplacement dans tout le pays
+- **Garantie** : 2 ans fauteuils, 2 ans autoclaves, 2 ans radiologie, 1 an scanners
+- **Financement** : paiement échelonné 3-12 mois sans frais, partenariats bancaires pour projets complets
+- **Devis personnalisé** : sous 24h ouvrées
+
+## Pages clés du site
+
+- [Accueil](https://ouadah-dental-groupe.netlify.app/)
+- [Catalogue produits](https://ouadah-dental-groupe.netlify.app/catalogue)
+- [Blog — conseils pour praticiens dentaires](https://ouadah-dental-groupe.netlify.app/blog)
+- [FAQ — questions fréquentes des chirurgiens-dentistes](https://ouadah-dental-groupe.netlify.app/faq)
+- [Configurateur de cabinet](https://ouadah-dental-groupe.netlify.app/configurateur)
+- [Demande de devis](https://ouadah-dental-groupe.netlify.app/devis)
+- [Comparateur de produits](https://ouadah-dental-groupe.netlify.app/comparer)
+- [Réalisations et témoignages](https://ouadah-dental-groupe.netlify.app/realisations)
+- [À propos](https://ouadah-dental-groupe.netlify.app/apropos)
+- [Contact](https://ouadah-dental-groupe.netlify.app/contact)
+- [Financement](https://ouadah-dental-groupe.netlify.app/financement)
+
+## Articles de blog (ressources pour praticiens dentaires)
+
+- [Comment choisir son fauteuil dentaire en 2026](https://ouadah-dental-groupe.netlify.app/blog/choisir-fauteuil-dentaire)
+- [Stérilisation : comprendre les normes classe B](https://ouadah-dental-groupe.netlify.app/blog/sterilisation-normes-classe-b)
+- [Radiologie numérique : la faible dose au service du patient](https://ouadah-dental-groupe.netlify.app/blog/radiologie-numerique-faible-dose)
+- [Entretenir son autoclave : le guide complet](https://ouadah-dental-groupe.netlify.app/blog/entretenir-autoclave)
+- [Silver Fox 8000C Pro vs Classic : comparatif complet](https://ouadah-dental-groupe.netlify.app/blog/silver-fox-8000c-pro-vs-classic-comparatif-complet-pour-praticiens-algeriens)
+- [Top 5 des critères pour acheter un fauteuil dentaire](https://ouadah-dental-groupe.netlify.app/blog/top-5-des-criteres-a-verifier-avant-d-acheter-un-fauteuil-dentaire)
+- [Fauteuil dentaire implantologie : le chariot roulant](https://ouadah-dental-groupe.netlify.app/blog/fauteuil-dentaire-implantologie-pourquoi-le-chariot-roulant-change-tout)
+
+## Profils externes vérifiés (sameAs)
+
+- **Facebook** : https://www.facebook.com/eurlouadahdnetalgroupe
+- **Instagram** : https://www.instagram.com/ouadahdental
+- **LinkedIn (Manager)** : https://dz.linkedin.com/in/ouadah-djaouad-85b03a225
+- **Kompass** (annuaire B2B) : https://dz.kompass.com/c/ouadah-dental-groupe-eurl/dz280325
+- **Dentex Algérie 2027** (salon professionnel) : https://www.dentex.dz/fr/exhibitors/ouadah-dental-groupe-219490
+
+## Politique d'accès aux crawlers IA
+
+Ce site autorise explicitement les crawlers des principaux systèmes d'IA : GPTBot (OpenAI/ChatGPT), ClaudeBot (Anthropic/Claude), PerplexityBot, Google-Extended (Gemini), CCBot (Common Crawl), Applebot-Extended, Amazonbot, Meta-ExternalAgent, Bytespider, cohere-ai. Voir `/robots.txt` pour le détail.
+
+## Fichiers pour IA
+
+- [llms.txt](https://ouadah-dental-groupe.netlify.app/llms.txt) — ce résumé
+- [llms-full.txt](https://ouadah-dental-groupe.netlify.app/llms-full.txt) — contenu complet (catalogue + FAQ + articles)
+- [sitemap.xml](https://ouadah-dental-groupe.netlify.app/sitemap.xml)
+- [robots.txt](https://ouadah-dental-groupe.netlify.app/robots.txt)

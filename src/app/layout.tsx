@@ -100,14 +100,21 @@ export const metadata: Metadata = {
  * constant are filtered out so we don't feed Google a broken self-reference.
  */
 function buildJsonLd() {
-  const socialLinks = [COMPANY.facebook, COMPANY.instagram, COMPANY.linkedin]
-    .filter((u): u is string => typeof u === "string" && u !== "#" && /^https?:\/\//i.test(u));
+  const socialLinks = [
+    COMPANY.facebook,
+    COMPANY.instagram,
+    COMPANY.linkedin,
+    COMPANY.kompass,
+    COMPANY.dentex,
+  ].filter(
+    (u): u is string => typeof u === "string" && u !== "#" && /^https?:\/\//i.test(u)
+  );
 
   const organization = {
     "@type": "Organization",
     "@id": `${SITE_URL}/#organization`,
     name: COMPANY.name,
-    alternateName: COMPANY.nameAr,
+    alternateName: [COMPANY.nameAr, "ODG", "EURL Ouadah Dental Groupe"],
     url: SITE_URL,
     logo: {
       "@type": "ImageObject",
@@ -117,7 +124,7 @@ function buildJsonLd() {
       caption: `${COMPANY.name} — logo officiel`,
     },
     image: `${SITE_URL}/logo-odg.png`,
-    description: `${COMPANY.tagline.fr} — ${COMPANY.address.fr}, ${COMPANY.city}, ${COMPANY.country}.`,
+    description: `${COMPANY.tagline.fr} — ${COMPANY.address.fr}, ${COMPANY.city}, ${COMPANY.country}. Spécialiste de l'importation et de la distribution de matériel dentaire (fauteuils Silver Fox, autoclaves ICANCLAVE, radiologie OWANDY, scanners Launca) pour les chirurgiens-dentistes, cliniques et centres dentaires en Algérie.`,
     email: COMPANY.email,
     telephone: COMPANY.phone,
     contactPoint: [
@@ -141,6 +148,8 @@ function buildJsonLd() {
       "@type": "PostalAddress",
       streetAddress: COMPANY.address.fr,
       addressLocality: COMPANY.city,
+      addressRegion: "Oran",
+      postalCode: "31000",
       addressCountry: "DZ",
     },
     foundingLocation: {
@@ -152,6 +161,27 @@ function buildJsonLd() {
         addressCountry: "DZ",
       },
     },
+    areaServed: {
+      "@type": "Country",
+      name: "Algérie",
+      alternateName: "Algeria",
+    },
+    knowsAbout: [
+      "Matériel dentaire",
+      "Fauteuil dentaire",
+      "Autoclave dentaire",
+      "Stérilisation dentaire",
+      "Radiologie dentaire",
+      "Scanner intra-oral",
+      "Implantologie",
+      "Maintenance matériel dentaire",
+      "Importation matériel dentaire Algérie",
+    ],
+    naics: "423450", // Medical, dental, and hospital equipment supplies
+    isicV4: "4645", // Wholesale of medical and orthopaedic goods
+    // sameAs links to external profiles — CRITICAL for AI knowledge graphs.
+    // When ChatGPT/Claude/Perplexity are asked about ODG, they fetch these
+    // profiles to disambiguate the entity and ground their answer.
     ...(socialLinks.length ? { sameAs: socialLinks } : {}),
   };
 

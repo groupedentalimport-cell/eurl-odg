@@ -185,6 +185,10 @@ export interface CompanyInfo {
   facebook?: string;
   instagram?: string;
   linkedin?: string;
+  // Industry directory profiles — used for AI knowledge-graph entity
+  // disambiguation (sameAs in Organization JSON-LD).
+  kompass?: string;
+  dentex?: string;
 }
 
 export const COMPANY: CompanyInfo = {
@@ -207,9 +211,12 @@ export const COMPANY: CompanyInfo = {
     fr: "Dim–Jeu : 8h00–17h00",
     ar: "الأحد–الخميس: 8:00–17:00",
   },
-  facebook: "#",
-  instagram: "#",
-  linkedin: "#",
+  facebook: "https://www.facebook.com/eurlouadahdnetalgroupe",
+  instagram: "https://www.instagram.com/ouadahdental",
+  linkedin: "https://dz.linkedin.com/in/ouadah-djaouad-85b03a225",
+  // Industry directories — boost entity disambiguation for AI knowledge graphs.
+  kompass: "https://dz.kompass.com/c/ouadah-dental-groupe-eurl/dz280325",
+  dentex: "https://www.dentex.dz/fr/exhibitors/ouadah-dental-groupe-219490",
 };
 
 export const STATS = [

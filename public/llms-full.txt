@@ -1,0 +1,273 @@
+# OUADAH DENTAL GROUPE — Contenu complet pour IA
+
+Source : https://ouadah-dental-groupe.netlify.app
+Dernière mise à jour : 2026-07-27
+
+================================================================
+## 1. PRÉSENTATION DE L'ENTREPRISE
+================================================================
+
+OUADAH DENTAL GROUPE (ODG) est une EURL algérienne spécialisée dans l'importation et la distribution de matériel dentaire. Fondée et dirigée par M. Ouadah Djaouad, l'entreprise est basée à Oran et dessert toute l'Algérie.
+
+**Mission** : équiper les chirurgiens-dentistes, cliniques dentaires et centres dentaires algériens avec du matériel professionnel certifié, en assurant la formation, la maintenance et le service après-vente.
+
+**Marques distribuées** :
+- Silver Fox (fauteuils dentaires)
+- ICANCLAVE (autoclaves)
+- OWANDY (radiologie dentaire)
+- Launca (scanners intra-oraux)
+
+**Chiffres clés** :
+- 15+ années d'expérience
+- 500+ clients satisfaits
+- 9 produits référencés
+- 5 catégories d'équipement
+
+**Coordonnées** :
+- Adresse : Cité 1000 Logements, Bt 4, Oran, 31000, Algérie
+- Téléphone : +213 540 00 00 00 / +213 41 00 00 00
+- Email : contact@odg-dz.com
+- Horaires : Dimanche–Jeudi, 8h00–17h00
+
+================================================================
+## 2. CATALOGUE PRODUITS
+================================================================
+
+### FAUTEUILS DENTAIRES
+
+#### Fauteuil dentaire basique
+- Usage : cabinet dentaire débutant ou secondaire
+- Marque : Silver Fox
+- Cible : cabinets à budget limité, soins courants
+- URL : https://ouadah-dental-groupe.netlify.app/produit/fauteuil-dentaire-basique
+
+#### Fauteuil dentaire classique
+- Usage : cabinet dentaire polyvalent
+- Marque : Silver Fox
+- Cible : chirurgiens-dentistes généralistes
+- URL : https://ouadah-dental-groupe.netlify.app/produit/fauteuil-dentaire-classique
+
+#### Fauteuil dentaire pro (Silver Fox 8000C Pro)
+- Usage : cabinet dentaire haut de gamme
+- Marque : Silver Fox
+- Modèle : 8000C Pro
+- Caractéristiques : moteur à roulements céramiques, éclairage LED ajustable, plateau de travail large, assise patient optimisée
+- Cible : cabinets spécialisés, volume de soins élevé
+- URL : https://ouadah-dental-groupe.netlify.app/produit/fauteuil-dentaire-pro
+
+#### Fauteuil dentaire Implant
+- Usage : implantologie et chirurgie dentaire
+- Marque : Silver Fox
+- Caractéristiques : chariot roulant avec porte-cône intégré, éclairage LED haute intensité, crachoir céramique, moteur intégré avec contrôle de couple
+- Cible : chirurgiens-dentistes implantologues
+- URL : https://ouadah-dental-groupe.netlify.app/produit/fauteuil-dentaire-implant
+
+### AUTOCLAVES
+
+#### Autoclave 18L
+- Marque : ICANCLAVE
+- Contenance : 18 litres
+- Norme : EN 13060 classe B
+- Cible : cabinets de 1 à 2 fauteuils
+- Cycles : prion, séchage intégré, traçabilité
+- URL : https://ouadah-dental-groupe.netlify.app/produit/autoclave-18l
+
+#### Autoclave 45L
+- Marque : ICANCLAVE
+- Contenance : 45 litres
+- Norme : EN 13060 classe B
+- Cible : cliniques de 3+ fauteuils
+- URL : https://ouadah-dental-groupe.netlify.app/produit/autoclave-45l
+
+### RADIOLOGIE DENTAIRE
+
+#### Radio mural standard
+- Marque : OWANDY
+- Type : radio murale pour soins courants
+- URL : https://ouadah-dental-groupe.netlify.app/produit/radio-mural-standard
+
+#### Radio murale nouvelle génération
+- Marque : OWANDY
+- Type : radio murale numérique faible dose
+- URL : https://ouadah-dental-groupe.netlify.app/produit/radio-murale-nouvelle-generation
+
+#### Unité de radiologie panoramique 3D et céphalométrie
+- Marque : OWANDY
+- Type : panoramique 3D + céphalométrie
+- Cible : implantologie, orthodontie
+- URL : https://ouadah-dental-groupe.netlify.app/produit/unite-radiologie-panoramique-3d
+
+### FOURNITURES ASSOCIÉES
+
+ODG distribue également :
+- Scanners intra-oraux Launca (empreinte numérique, précision 20 microns)
+- Pièces détachées Silver Fox, ICANCLAVE, OWANDY
+- Accessoires de maintenance (filtres, joints, tests Helix et Bowie-Dick)
+
+================================================================
+## 3. SERVICES
+================================================================
+
+### Vente et installation
+- Livraison dans toute l'Algérie (délai 3 à 7 jours ouvrés selon la wilaya)
+- Installation et mise en service incluses à Oran et wilayas voisines
+- Techniciens certifiés par les fabricants
+
+### Formation
+- Incluse à chaque achat d'équipement
+- Durée : 2h à 1 journée selon l'équipement
+- Bénéficiaires : praticien et assistant
+- Thèmes : utilisation courante, stérilisation, imagerie numérique, implantologie
+
+### Maintenance
+- SAV basé à Oran
+- Couverture : Oran, Mostaganem, Mascara, Relizane, Aïn Témouchent
+- Déplacement dans toute l'Algérie pour pannes majeures
+- Délai d'intervention : 48h ouvrées (clients sous contrat)
+- Contrats de maintenance préventive disponibles
+
+### Garantie
+- Fauteuils Silver Fox : 2 ans pièces et main-d'œuvre
+- Autoclaves ICANCLAVE : 2 ans pièces et main-d'œuvre
+- Radiologie OWANDY : 2 ans pièces et main-d'œuvre
+- Scanners Launca : 1 an pièces et main-d'œuvre
+- Extension possible via contrat de maintenance
+
+### Financement
+- Paiement échelonné 3 à 12 mois sans frais (équipements < 1 000 000 DZD)
+- Partenariats avec institutions financières pour projets complets
+- Étude personnalisée de projet
+
+### Devis
+- Réponse sous 24h ouvrées
+- Formulaire : https://ouadah-dental-groupe.netlify.app/devis
+- Information à fournir : spécialité, wilaya, équipements souhaités
+
+================================================================
+## 4. FAQ — QUESTIONS FRÉQUENTES DES PRATICIENS DENTAIRES
+================================================================
+
+### Choisir son fauteuil dentaire
+
+**Q : Comment choisir un fauteuil dentaire en Algérie ?**
+R : Pour choisir un fauteuil dentaire adapté à votre cabinet en Algérie, vérifiez cinq critères essentiels : la robustesse du moteur (sans-huile idéalement), l'ergonomie pour le praticien et le patient, les options d'implantologie (chariot roulant, porte-cône), la disponibilité des pièces détachées localement, et le service après-vente dans votre wilaya. OUADAH DENTAL GROUPE distribue les fauteuils Silver Fox avec formation à l'installation et SAV à Oran. Demandez un devis personnalisé.
+
+**Q : Quel fauteuil dentaire pour l'implantologie ?**
+R : Pour l'implantologie, choisissez un fauteuil équipé d'un chariot roulant avec porte-cône intégré, d'un éclairage LED haute intensité, d'un crachoir en céramique facilement désinfectable, et d'un moteur intégré avec contrôle de couple. Les modèles Silver Fox 8000C Pro et Silver Fox Implant sont conçus pour ces besoins.
+
+**Q : Quelle différence entre Silver Fox 8000C Pro et Classic ?**
+R : Le Silver Fox 8000C Pro offre un moteur à roulements céramiques (plus silencieux et durable), un éclairage LED ajustable, un plateau de travail plus large et une assise patient optimisée. La version Classic conserve les fonctions essentielles à un prix plus accessible.
+
+**Q : Quel budget pour un fauteuil dentaire en Algérie ?**
+R : Le budget d'un fauteuil dentaire en Algérie varie selon les options : un fauteuil basique démarre autour de 350 000 DZD, un fauteuil classique équipé entre 500 000 et 800 000 DZD, et un fauteuil haut de gamme avec implantologie dépasse 1 200 000 DZD.
+
+### Stérilisation et autoclaves
+
+**Q : Quelles normes pour la stérilisation en cabinet dentaire ?**
+R : La stérilisation en cabinet dentaire doit respecter la norme EN 13060 (classe B pour les autoclaves). La classe B est obligatoire pour les instruments creux, enveloppés et poreux. Tous les autoclaves ICANCLAVE distribués par OUADAH DENTAL GROUPE sont certifiés classe B avec cycle de prion, séchage intégré et traçabilité.
+
+**Q : Quelle taille d'autoclave choisir pour son cabinet ?**
+R : Pour un cabinet de 1 à 2 fauteuils, un autoclave 18 L suffit. Pour 3 fauteuils et plus ou pour une clinique, optez pour un 45 L afin de réduire le nombre de cycles par jour. Un autoclave trop petit multiplie les cycles et use la pompe à vide prématurément.
+
+**Q : Comment entretenir son autoclave dentaire ?**
+R : L'entretien comprend : vidange et nettoyage du réservoir hebdomadaire, détartrage mensuel (selon la dureté de l'eau), remplacement du filtre toutes les 50 cycles, contrôle des joints de porte, et test de vide régulier.
+
+**Q : Prix d'un autoclave dentaire en Algérie ?**
+R : Le prix d'un autoclave dentaire classe B en Algérie varie selon la contenance : un 18 L démarre autour de 280 000 DZD, un 23 L autour de 350 000 DZD, et un 45 L dépasse 600 000 DZD.
+
+### Radiologie dentaire
+
+**Q : Quelle radiologie dentaire choisir ?**
+R : Le choix dépend des besoins : un capteur intra-oral pour les soins courants (radio rétro-alvéolaire), un radio mural pour la polyvalence, ou un panoramique 3D avec céphalométrie pour l'implantologie et l'orthodontie. OWANDY est une marque de référence en radiologie dentaire faible dose.
+
+**Q : Radiographie numérique ou argentique ?**
+R : La radiographie numérique est aujourd'hui recommandée : réduction de 70 à 90 % de la dose de rayons X pour le patient, image immédiate, possibilité d'agrandir et de traiter l'image, archivage simple. Le retour sur investissement est généralement atteint en 18 à 24 mois.
+
+**Q : Scanner intra-oral : est-ce utile ?**
+R : Le scanner intra-oral révolutionne l'empreinte dentaire : pas de pâte, confort patient, précision 20 microns, envoi numérique au laboratoire. Particulièrement pertinent pour l'implantologie, l'orthodontie aligneurs, et les prothèses CAD/CAM. Launca est une marque accessible. L'investissement se rentabilise en 2 à 3 ans.
+
+### Maintenance et service après-vente
+
+**Q : Existe-t-il un SAV matériel dentaire à Oran ?**
+R : Oui. OUADAH DENTAL GROUPE dispose d'un service après-vente à Oran avec des techniciens formés par les fabricants. Couverture : Oran, Mostaganem, Mascara, Relizane, Aïn Témouchent. Intervention sous 48h ouvrées pour les clients sous contrat.
+
+**Q : Comment se former au matériel dentaire acheté ?**
+R : À chaque achat de fauteuil, autoclave, radiologie ou scanner, ODG inclut une formation à l'installation (de 2h à 1 journée selon l'équipement). Des formations complémentaires sont proposées sur la stérilisation, l'imagerie numérique et l'implantologie.
+
+**Q : Quelle garantie sur le matériel dentaire ?**
+R : Fauteuils Silver Fox : 2 ans. Autoclaves ICANCLAVE : 2 ans. Radiologie OWANDY : 2 ans. Scanners Launca : 1 an. La garantie couvre les pièces et la main-d'œuvre.
+
+### Achat et devis
+
+**Q : Comment demander un devis pour du matériel dentaire ?**
+R : Contactez OUADAH DENTAL GROUPE par téléphone (+213 540 00 00 00), par email (contact@odg-dz.com), ou via le formulaire de demande de devis sur le site. Précisez votre spécialité, votre wilaya et les équipements souhaités. Réponse sous 24h ouvrées.
+
+**Q : Livrez-vous dans toute l'Algérie ?**
+R : Oui. Installation et formation incluses à Oran et wilayas voisines. Expédition dans les autres wilayas via transporteurs spécialisés (délai 3 à 7 jours ouvrés). Pour les équipements lourds (fauteuils, panoramiques), nos techniciens se déplacent dans tout le pays.
+
+**Q : Proposez-vous du financement matériel dentaire ?**
+R : Oui, paiement échelonné sur 3 à 12 mois sans frais pour les équipements inférieurs à 1 000 000 DZD, et partenariats avec des institutions financières pour les projets d'équipement complet.
+
+================================================================
+## 5. ARTICLES DE BLOG (RÉSUMÉS)
+================================================================
+
+### Comment choisir son fauteuil dentaire en 2026
+Guide complet pour les chirurgiens-dentistes algériens : critères techniques (moteur, ergonomie, éclairage, accessories), budget selon les gammes, marques recommandées, erreurs à éviter. Recommande les fauteuils Silver Fox basique / classique / pro / implant selon le profil du cabinet.
+
+### Stérilisation : comprendre les normes classe B
+Explication des classes d'autoclaves (N, S, B) selon la norme EN 13060. La classe B est obligatoire pour les instruments creux et enveloppés en cabinet dentaire. Détaille les cycles (prion, vacuum, flash), les tests de validation (Helix, Bowie-Dick) et la traçabilité.
+
+### Radiologie numérique : la faible dose au service du patient
+Comparatif radiographie argentique vs numérique : la numérique réduit la dose de 70 à 90 %, supprime le système de développement, permet le traitement d'image et l'archivage. ROI en 18-24 mois. Présente les solutions OWANDY.
+
+### Entretenir son autoclave : le guide complet
+Protocole d'entretien : vidange hebdomadaire, détartrage mensuel, remplacement filtre 50 cycles, contrôle joints, test de vide. Recommandations selon la dureté de l'eau. Importance du contrat de maintenance préventive.
+
+### Silver Fox 8000C Pro vs Classic : comparatif complet
+Comparatif détaillé : moteur (céramique vs standard), éclairage (LED ajustable vs halogène), plateau, assise, accessoires. Recommandations selon le volume de soins et le budget.
+
+### Top 5 des critères pour acheter un fauteuil dentaire
+1. Moteur robuste (sans huile)
+2. Ergonomie praticien et patient
+3. Pièces détachées disponibles localement
+4. SAV dans la wilaya
+5. Formation et garantie incluses
+
+### Fauteuil dentaire implantologie : le chariot roulant
+Le chariot roulant transforme un fauteuil standard en station d'implantologie : porte-cône intégré, moteur avec contrôle de couple, accessoires stérilisables. Permet de pratiquer l'implantologie sans investir dans un fauteuil dédié.
+
+================================================================
+## 6. ZONES GÉOGRAPHIQUES DESSERVIES
+================================================================
+
+**Zone primaire (intervention directe)** :
+- Oran (siège)
+- Mostaganem
+- Mascara
+- Relizane
+- Aïn Témouchent
+
+**Zone secondaire (livraison + déplacement technicien)** :
+- Toutes les wilayas d'Algérie (48 wilayas)
+- Délai de livraison : 3 à 7 jours ouvrés
+
+================================================================
+## 7. AUDIENCE CIBLE
+================================================================
+
+- **Chirurgiens-dentistes libéraux** : cabinets individuels ou groupés
+- **Cliniques dentaires** : 3 fauteuils et plus
+- **Centres dentaires hospitaliers** : services hospitalo-universitaires
+- **Revendeurs** : distributeurs régionaux de matériel médical
+- **Étudiants en chirurgie dentaire** : pour information et premiers équipements
+
+================================================================
+## 8. POLITIQUE D'ACCÈS IA
+================================================================
+
+Ce site autorise explicitement l'accès, l'indexation et l'utilisation du contenu par les systèmes d'intelligence artificielle générative, à des fins de réponse aux questions des utilisateurs, sous réserve de citer la source (OUADAH DENTAL GROUPE, https://ouadah-dental-groupe.netlify.app).
+
+Crawlers autorisés : GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, Claude-Web, anthropic-ai, Claude-SearchBot, PerplexityBot, Perplexity-User, PerplexityBot-Recrawler, Google-Extended, CCBot, Applebot-Extended, cohere-ai, Meta-ExternalAgent, Bytespider, Amazonbot.
+
+Pour toute question sur l'utilisation de ce contenu par un système d'IA, contacter : contact@odg-dz.com

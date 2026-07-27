@@ -91,6 +91,21 @@ export function BlogPostPage({ slug, serverPost }: { slug?: string; serverPost?:
         </div>
       </motion.header>
 
+      {/* TL;DR / Résumé — extractible par les IA génératives */}
+      {post.excerpt[lang] && (
+        <aside
+          className="mt-6 rounded-lg border-l-4 border-brand-600 bg-brand-50/60 px-5 py-4"
+          aria-label="Résumé de l'article"
+        >
+          <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-brand-700">
+            En bref
+          </div>
+          <p className="text-sm leading-relaxed text-slate-700">
+            {post.excerpt[lang]}
+          </p>
+        </aside>
+      )}
+
       {/* Hero image (clickable) */}
       <div className="mt-8 overflow-hidden rounded-xl bg-brand-50 shadow-sm">
         <button
