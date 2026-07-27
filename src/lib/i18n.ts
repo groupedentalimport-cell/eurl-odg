@@ -27,6 +27,7 @@ export const T = {
   home: { fr: "Accueil", ar: "الرئيسية" },
   catalogue: { fr: "Catalogue", ar: "الكتالوج" },
   blog: { fr: "Blog", ar: "المدونة" },
+  faq: { fr: "FAQ", ar: "الأسئلة الشائعة" },
   about: { fr: "À propos", ar: "من نحن" },
   contact: { fr: "Contact", ar: "اتصل بنا" },
   compare: { fr: "Comparer", ar: "مقارنة" },

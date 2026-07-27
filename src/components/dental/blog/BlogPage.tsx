@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useData, getBlogImageUrl } from "@/lib/data-service";
 import { useTranslation } from "@/lib/i18n";
 import { navigate } from "@/lib/router";
+import type { BlogPost } from "@/lib/types";
 
 // Local image component for blog bucket (blog-images, not product-images)
 function BlogImage({ filename, alt, className, fallbackText = "ODG" }: { filename?: string; alt: string; className?: string; fallbackText?: string }) {
@@ -23,10 +24,16 @@ function BlogImage({ filename, alt, className, fallbackText = "ODG" }: { filenam
   return <img src={url} alt={alt} loading="lazy" onError={() => setErrored(true)} className={className} />;
 }
 
-export function BlogPage() {
-  const { blogPosts, loading } = useData();
+export function BlogPage({ initialPosts }: { initialPosts?: BlogPost[] }) {
+  const { blogPosts: ctxPosts, loading: ctxLoading } = useData();
   const { lang, t } = useTranslation();
   const [query, setQuery] = useState("");
+
+  // Prefer server-rendered initial posts on first paint (SEO critical —
+  // Googlebot sees them in the HTML). Once the client-side DataProvider
+  // has fetched the live posts, switch to those for fresh data.
+  const hasCtx = ctxPosts.length > 0 && !ctxLoading;
+  const blogPosts = hasCtx ? ctxPosts : (initialPosts ?? []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -37,6 +44,8 @@ export function BlogPage() {
       return title.includes(q) || excerpt.includes(q);
     });
   }, [blogPosts, query, lang]);
+
+  const loading = !hasCtx && (!initialPosts || initialPosts.length === 0);
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(lang === "ar" ? "ar-DZ" : "fr-FR", {

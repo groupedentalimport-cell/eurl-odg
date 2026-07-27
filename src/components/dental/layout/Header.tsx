@@ -368,13 +368,14 @@ export function Header() {
 
   const links: {
     path: string;
-    key: "home" | "catalogue" | "configuratorNav" | "financing" | "blog" | "about" | "contact";
+    key: "home" | "catalogue" | "configuratorNav" | "financing" | "blog" | "faq" | "about" | "contact";
   }[] = [
     { path: "", key: "home" },
     { path: "catalogue", key: "catalogue" },
     { path: "configurateur", key: "configuratorNav" },
     { path: "financement", key: "financing" },
     { path: "blog", key: "blog" },
+    { path: "faq", key: "faq" },
     { path: "apropos", key: "about" },
     { path: "contact", key: "contact" },
   ];

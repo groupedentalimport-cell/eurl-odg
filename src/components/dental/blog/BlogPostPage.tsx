@@ -14,6 +14,7 @@ import {
 import { useBlogBySlug, useData, getBlogImageUrl } from "@/lib/data-service";
 import { useTranslation } from "@/lib/i18n";
 import { navigate } from "@/lib/router";
+import type { BlogPost } from "@/lib/types";
 
 function BlogImage({ filename, alt, className, fallbackText = "ODG" }: { filename?: string; alt: string; className?: string; fallbackText?: string }) {
   const [errored, setErrored] = useState(false);
@@ -28,12 +29,16 @@ function BlogImage({ filename, alt, className, fallbackText = "ODG" }: { filenam
   return <img src={url} alt={alt} loading="lazy" onError={() => setErrored(true)} className={className} />;
 }
 
-export function BlogPostPage({ slug }: { slug?: string }) {
-  const post = useBlogBySlug(slug);
+export function BlogPostPage({ slug, serverPost }: { slug?: string; serverPost?: BlogPost }) {
+  // If we have a server-rendered post, use it immediately (no client fetch).
+  // Otherwise fall back to the client-side data context.
+  const clientPost = useBlogBySlug(slug);
   const { blogPosts } = useData();
   const { lang, t } = useTranslation();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [rotation, setRotation] = useState(0);
+
+  const post = serverPost || clientPost;
 
   if (!post) {
     return (

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { getServerClient } from "@/lib/supabase";
+import { SITE_URL } from "@/lib/env";
+import { COMPANY } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Per-product SEO metadata (server-side, fetched from Supabase).
@@ -17,8 +19,6 @@ import { getServerClient } from "@/lib/supabase";
 // should never 500 because of a DB hiccup.
 
 type Params = { params: Promise<{ slug: string }> };
-
-const SITE_URL = "https://ouadah-dental-groupe.vercel.app";
 
 const FALLBACK: Metadata = {
   title: "Produit",
