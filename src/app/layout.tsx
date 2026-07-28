@@ -230,13 +230,53 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ErrorBoundary>
           <Providers>{children}</Providers>
         </ErrorBoundary>
-        {/* Service worker registration is gated on non-admin routes so a
-            stale SW cache can't serve an old admin HTML after a deploy.
-            SW is also skipped on localhost to avoid cache pollution
-            during `next dev`. */}
+        {/* Service worker registration with version-gated self-cleanup.
+            - Skipped on /admin, /portal, and localhost to avoid cache
+              pollution in those contexts.
+            - On every load, checks the SW script content for the current
+              CACHE_VERSION marker. If the active SW is stale (older version),
+              it is unregistered and the page is reloaded once to ensure the
+              new SW takes effect immediately. This fixes the ChunkLoadError
+              caused by old SW versions serving cached HTML that references
+              deleted chunk hashes after a deploy.
+        */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator && location.pathname.indexOf('/admin')!==0 && location.pathname.indexOf('/portal')!==0 && location.hostname!=='localhost'){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`,
+            __html: `(function(){
+              if(!('serviceWorker' in navigator)) return;
+              if(location.pathname.indexOf('/admin')===0) return;
+              if(location.pathname.indexOf('/portal')===0) return;
+              if(location.hostname==='localhost') return;
+              var CURRENT_SW_VERSION='odg-v3-network-first';
+              window.addEventListener('load',function(){
+                navigator.serviceWorker.getRegistration().then(function(reg){
+                  if(!reg){
+                    navigator.serviceWorker.register('/sw.js').catch(function(){});
+                    return;
+                  }
+                  // Force update check: the browser will fetch /sw.js and
+                  // compare byte-by-byte. If different, the new SW installs.
+                  reg.update().catch(function(){});
+                  // If the active SW is stale (old version), unregister it
+                  // and reload once to clear any cached stale HTML.
+                  if(reg.active){
+                    fetch('/sw.js',{cache:'no-store'})
+                      .then(function(r){return r.text();})
+                      .then(function(txt){
+                        if(txt.indexOf(CURRENT_SW_VERSION)===-1){
+                          reg.unregister().then(function(){
+                            if(!sessionStorage.getItem('odg_sw_reloaded')){
+                              sessionStorage.setItem('odg_sw_reloaded','1');
+                              window.location.reload();
+                            }
+                          }).catch(function(){});
+                        }
+                      })
+                      .catch(function(){});
+                  }
+                }).catch(function(){});
+              });
+            })();`,
           }}
         />
       </body>
