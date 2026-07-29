@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Category, Product, BlogPost } from "./types";
+import type { Category, Product, BlogPost, ProductFaqItem } from "./types";
 import { MOCK_CATEGORIES, MOCK_PRODUCTS, MOCK_BLOG_POSTS, CATEGORY_DESCRIPTIONS } from "./mock-data";
 import { isSupabaseConfigured, supabase, getProductImageUrl, getBlogImageUrl } from "./supabase";
 
@@ -45,6 +45,33 @@ function mapProduct(row: any): Product {
     label: { fr: k, ar: k },
     value: String(v ?? ""),
   }));
+
+  // Parse FAQ JSONB (Postgres) — accept both pre-parsed array and string.
+  function parseFaq(val: unknown): ProductFaqItem[] | undefined {
+    if (!val) return undefined;
+    if (Array.isArray(val)) {
+      // Validate shape — keep only {q, a} items.
+      return val
+        .map((item: any) => ({
+          q: String(item?.q || item?.question || "").trim(),
+          a: String(item?.a || item?.answer || "").trim(),
+        }))
+        .filter((item: ProductFaqItem) => item.q && item.a);
+    }
+    if (typeof val === "string") {
+      try {
+        const parsed = JSON.parse(val);
+        return parseFaq(parsed);
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  }
+
+  const faqFr = parseFaq(row.faq_fr);
+  const faqAr = parseFaq(row.faq_ar) || faqFr;
+
   return {
     id: row.id,
     slug: row.slug,
@@ -53,6 +80,32 @@ function mapProduct(row: any): Product {
       fr: row.description_fr || "",
       ar: row.description_ar || row.description_fr || "",
     },
+    descriptionLongue: row.description_longue_fr || row.description_longue_ar
+      ? {
+          fr: row.description_longue_fr || "",
+          ar: row.description_longue_ar || row.description_longue_fr || "",
+        }
+      : undefined,
+    usages: row.usages_fr || row.usages_ar
+      ? { fr: row.usages_fr || "", ar: row.usages_ar || row.usages_fr || "" }
+      : undefined,
+    maintenance: row.maintenance_fr || row.maintenance_ar
+      ? { fr: row.maintenance_fr || "", ar: row.maintenance_ar || row.maintenance_fr || "" }
+      : undefined,
+    compatibilite: row.compatibilite_fr || row.compatibilite_ar
+      ? {
+          fr: row.compatibilite_fr || "",
+          ar: row.compatibilite_ar || row.compatibilite_fr || "",
+        }
+      : undefined,
+    garantie: row.garantie_fr || row.garantie_ar
+      ? { fr: row.garantie_fr || "", ar: row.garantie_ar || row.garantie_fr || "" }
+      : undefined,
+    faq: faqFr ? { fr: faqFr, ar: faqAr } : undefined,
+    prixMin: row.prix_min ?? null,
+    prixMax: row.prix_max ?? null,
+    ratingValue: row.rating_value ?? null,
+    ratingCount: row.rating_count ?? null,
     specs,
     images,
     pdfUrl: row.pdf_url || undefined,
@@ -65,6 +118,7 @@ function mapProduct(row: any): Product {
     available: row.disponible !== false,
     order: row.ordre ?? 0,
     audience: Array.isArray(row.cible) ? row.cible : [],
+    videoUrl: row.video_url || undefined,
   };
 }
 

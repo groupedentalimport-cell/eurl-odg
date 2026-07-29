@@ -109,11 +109,30 @@ export interface ProductSpec {
   value: string;
 }
 
+// FAQ entry used in the Product schema and FAQPage JSON-LD.
+export interface ProductFaqItem {
+  q: string;
+  a: string;
+}
+
 export interface Product {
   id: string;
   slug: string;
   name: LocalizedText;
   description: LocalizedText;
+  // Rich content fields (added 2026-07-29 for SEO/AI). All optional — old
+  // products without these fields keep working, the UI simply hides the
+  // corresponding tabs/sections.
+  descriptionLongue?: LocalizedText;
+  usages?: LocalizedText;
+  maintenance?: LocalizedText;
+  compatibilite?: LocalizedText;
+  garantie?: LocalizedText;
+  faq?: { fr: ProductFaqItem[]; ar: ProductFaqItem[] };
+  prixMin?: number | null;
+  prixMax?: number | null;
+  ratingValue?: number | null;
+  ratingCount?: number | null;
   specs: ProductSpec[];
   images: string[];
   pdfUrl?: string;
