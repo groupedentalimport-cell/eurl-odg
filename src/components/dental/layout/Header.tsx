@@ -22,6 +22,7 @@ import { useQuoteCart } from "@/hooks/useQuoteCart";
 import { useCompare } from "@/hooks/useCompare";
 import { navigate, useHashRoute } from "@/lib/router";
 import { LanguageSwitch } from "@/components/dental/lang/LanguageSwitch";
+import { ChevronDown, Layers } from "lucide-react";
 
 // ============================================================
 // Global header search (Task SEARCH-1)
@@ -357,7 +358,9 @@ export function Header() {
   const { t, lang } = useTranslation();
   const COMPANY = useCompanyInfo();
   const route = useHashRoute();
+  const { categories } = useData();
   const [open, setOpen] = useState(false);
+  const [catMenuOpen, setCatMenuOpen] = useState(false);
   const quoteCount = useQuoteCart((s) => s.totalItems);
   const compareCount = useCompare((s) => s.ids.length);
 
@@ -366,12 +369,15 @@ export function Header() {
     return r.startsWith(path) || (path === "" && (r === "" || r === "/"));
   };
 
+  // "Catalogue" link replaced with a dropdown that lists all categories.
+  // Each category links to /categorie/<slug> (real SSR route) instead of the
+  // hash-catalogue query — this improves internal linking for SEO and lets
+  // Google discover every category page from the header on every page.
   const links: {
     path: string;
-    key: "home" | "catalogue" | "configuratorNav" | "financing" | "blog" | "faq" | "about" | "contact";
+    key: "home" | "configuratorNav" | "financing" | "blog" | "faq" | "about" | "contact";
   }[] = [
     { path: "", key: "home" },
-    { path: "catalogue", key: "catalogue" },
     { path: "configurateur", key: "configuratorNav" },
     { path: "financement", key: "financing" },
     { path: "blog", key: "blog" },
@@ -414,6 +420,50 @@ export function Header() {
               {t(l.key)}
             </button>
           ))}
+
+          {/* Catalogue dropdown — links to /catalogue + each /categorie/<slug> */}
+          <div
+            className="relative"
+            onMouseEnter={() => setCatMenuOpen(true)}
+            onMouseLeave={() => setCatMenuOpen(false)}
+          >
+            <button
+              onClick={() => go("catalogue")}
+              className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:text-brand-700 hover:bg-slate-50"
+              aria-expanded={catMenuOpen}
+              aria-haspopup="true"
+            >
+              <Layers className="h-4 w-4" />
+              {t("catalogue")}
+              <ChevronDown className={`h-3 w-3 transition-transform ${catMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+            {catMenuOpen && categories.length > 0 && (
+              <div
+                className="absolute end-0 top-full z-50 mt-1 min-w-[220px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                role="menu"
+              >
+                <button
+                  onClick={() => go("catalogue")}
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                  role="menuitem"
+                >
+                  {t("catalogue")}
+                  <span className="text-[10px] text-slate-400">Tous les produits</span>
+                </button>
+                <div className="my-1 border-t border-slate-100" />
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => go("categorie/" + c.slug)}
+                    className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700"
+                    role="menuitem"
+                  >
+                    {c.name[lang]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Right actions */}
@@ -505,6 +555,22 @@ export function Header() {
                 }`}
               >
                 {t(l.key)}
+              </button>
+            ))}
+            {/* Mobile: link to /catalogue + each /categorie/<slug> */}
+            <button
+              onClick={() => go("catalogue")}
+              className="rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-900 hover:bg-slate-50"
+            >
+              {t("catalogue")} — tous les produits
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => go("categorie/" + c.slug)}
+                className="rounded-md px-3 py-2 pl-6 text-left text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700"
+              >
+                {c.name[lang]}
               </button>
             ))}
             <Button

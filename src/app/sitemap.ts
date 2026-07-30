@@ -114,6 +114,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Supabase not configured or table missing — skip products silently.
   }
 
+  // --- Dynamic: category slugs (/categorie/<slug>) ---------------------
+  try {
+    const client = getServerClient();
+    const { data: cats, error: catErr } = await client
+      .from("categories")
+      .select("slug, nom_fr")
+      .order("ordre", { ascending: true });
+
+    if (!catErr && Array.isArray(cats)) {
+      for (const c of cats) {
+        if (!c?.slug) continue;
+        entries.push({
+          url: `${SITE_URL}/categorie/${c.slug}`,
+          lastModified: now,
+          changeFrequency: "weekly",
+          priority: 0.8,
+        });
+      }
+    }
+  } catch {
+    // Supabase not configured or table missing — skip categories silently.
+  }
+
   // --- Dynamic: blog post slugs (/blog/<slug>) -------------------------
   try {
     const client = getServerClient();
