@@ -375,9 +375,10 @@ export function Header() {
   // Google discover every category page from the header on every page.
   const links: {
     path: string;
-    key: "home" | "configuratorNav" | "financing" | "blog" | "faq" | "about" | "contact";
+    key: "home" | "marques" | "configuratorNav" | "financing" | "blog" | "faq" | "about" | "contact";
   }[] = [
     { path: "", key: "home" },
+    { path: "marques", key: "marques" },
     { path: "configurateur", key: "configuratorNav" },
     { path: "financement", key: "financing" },
     { path: "blog", key: "blog" },

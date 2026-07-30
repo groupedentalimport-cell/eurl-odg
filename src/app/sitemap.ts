@@ -48,6 +48,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
+      url: `${SITE_URL}/marques`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
       url: `${SITE_URL}/faq`,
       lastModified: now,
       changeFrequency: "monthly",
@@ -135,6 +141,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch {
     // Supabase not configured or table missing — skip categories silently.
+  }
+
+  // --- Static: brand pages (/marques/<slug>) ---------------------------
+  // The 4 brands are defined in src/lib/brands-data.ts and don't depend
+  // on Supabase — they're always available.
+  try {
+    const { BRANDS } = await import("@/lib/brands-data");
+    for (const slug of Object.keys(BRANDS)) {
+      entries.push({
+        url: `${SITE_URL}/marques/${slug}`,
+        lastModified: now,
+        changeFrequency: "monthly",
+        priority: 0.8,
+      });
+    }
+  } catch {
+    // Defensive — should never fail since brands-data.ts has no deps.
   }
 
   // --- Dynamic: blog post slugs (/blog/<slug>) -------------------------
