@@ -41,6 +41,30 @@ function normalizeSpecs(specs: unknown): Record<string, string> {
   return {};
 }
 
+// Normalize FAQ payload — accept both array of {q,a} and stringified JSON.
+// Returns a valid Postgres JSONB array [{q, a}, ...] or null.
+function normalizeFaq(val: unknown): Array<{ q: string; a: string }> | null {
+  if (val == null) return null;
+  let arr: unknown = val;
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    try {
+      arr = JSON.parse(trimmed);
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(arr)) return null;
+  const cleaned = arr
+    .map((item: any) => ({
+      q: String(item?.q ?? item?.question ?? "").trim(),
+      a: String(item?.a ?? item?.answer ?? "").trim(),
+    }))
+    .filter((item) => item.q && item.a);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 function buildPayload(body: Record<string, unknown>) {
   const nom_fr =
     String(body.nom_fr ?? "").trim() ||
@@ -52,12 +76,51 @@ function buildPayload(body: Record<string, unknown>) {
     String(body.nom_fr ?? "").trim() ||
     String(body.slug ?? "") ||
     "منتج";
+
+  // Number helpers — null when not provided (so we don't overwrite existing
+  // values with 0 when the admin leaves a field empty).
+  const numOrNull = (v: unknown): number | null => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // String helpers — empty string becomes null (so we don't store empty
+  // values in the DB).
+  const strOrNull = (v: unknown): string | null => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    return s ? s : null;
+  };
+
+  const faqFr = normalizeFaq(body.faq_fr);
+  const faqAr = normalizeFaq(body.faq_ar) || faqFr;
+
   return {
     slug: body.slug ?? "",
     nom_fr,
     nom_ar,
     description_fr: body.description_fr ?? "",
     description_ar: body.description_ar ?? "",
+    // Rich content fields (added 2026-07-29 for SEO/IA).
+    description_longue_fr: strOrNull(body.description_longue_fr),
+    description_longue_ar: strOrNull(body.description_longue_ar),
+    usages_fr: strOrNull(body.usages_fr),
+    usages_ar: strOrNull(body.usages_ar),
+    maintenance_fr: strOrNull(body.maintenance_fr),
+    maintenance_ar: strOrNull(body.maintenance_ar),
+    compatibilite_fr: strOrNull(body.compatibilite_fr),
+    compatibilite_ar: strOrNull(body.compatibilite_ar),
+    garantie_fr: strOrNull(body.garantie_fr),
+    garantie_ar: strOrNull(body.garantie_ar),
+    faq_fr: faqFr,
+    faq_ar: faqAr,
+    prix_min: numOrNull(body.prix_min),
+    prix_max: numOrNull(body.prix_max),
+    rating_value: numOrNull(body.rating_value),
+    rating_count: numOrNull(body.rating_count),
+    video_url: strOrNull(body.video_url),
+    // Original fields below — unchanged.
     specs: normalizeSpecs(body.specs),
     images: Array.isArray(body.images) ? body.images : [],
     pdf_url: body.pdf_url ?? null,

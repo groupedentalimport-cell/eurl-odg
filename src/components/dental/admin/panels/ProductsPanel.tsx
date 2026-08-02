@@ -14,6 +14,7 @@ import {
   FileText,
   Image as ImageIcon,
   ZoomIn,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -36,11 +37,14 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { useTranslation } from "@/lib/i18n";
 import { useData } from "@/lib/data-service";
 import { getProductImageUrl } from "@/lib/supabase";
 import { ImageLightbox, type LightboxImage } from "@/components/dental/ui/ImageLightbox";
+import { HtmlEditor } from "@/components/dental/admin/HtmlEditor";
+import { FaqEditor, type FaqItem } from "@/components/dental/admin/FaqEditor";
 
 interface ProductRow {
   id: string;
@@ -49,6 +53,23 @@ interface ProductRow {
   nom_ar: string | null;
   description_fr: string | null;
   description_ar: string | null;
+  // Rich content fields (added 2026-07-29 for SEO/IA).
+  description_longue_fr?: string | null;
+  description_longue_ar?: string | null;
+  usages_fr?: string | null;
+  usages_ar?: string | null;
+  maintenance_fr?: string | null;
+  maintenance_ar?: string | null;
+  compatibilite_fr?: string | null;
+  compatibilite_ar?: string | null;
+  garantie_fr?: string | null;
+  garantie_ar?: string | null;
+  faq_fr?: Array<{ q: string; a: string }> | string | null;
+  faq_ar?: Array<{ q: string; a: string }> | string | null;
+  prix_min?: number | null;
+  prix_max?: number | null;
+  rating_value?: number | null;
+  rating_count?: number | null;
   specs: any;
   images: string[] | null;
   pdf_url: string | null;
@@ -72,11 +93,28 @@ interface ProductForm {
   nom_ar: string;
   description_fr: string;
   description_ar: string;
+  // Rich content fields
+  description_longue_fr: string;
+  description_longue_ar: string;
+  usages_fr: string;
+  usages_ar: string;
+  maintenance_fr: string;
+  maintenance_ar: string;
+  compatibilite_fr: string;
+  compatibilite_ar: string;
+  garantie_fr: string;
+  garantie_ar: string;
+  faq_fr: FaqItem[];
+  faq_ar: FaqItem[];
+  prix_min: string;
+  prix_max: string;
+  rating_value: string;
+  rating_count: string;
+  video_url: string;
   specs: string; // textarea: "Label|Value" per line
   images: string[]; // array of storage filenames
   pdf_url: string; // single storage filename (or "")
   brochure_pdf: string; // single storage filename (or "")
-  video_url: string;
   category_id: string;
   marque: string;
   modele: string;
@@ -92,11 +130,27 @@ const EMPTY_FORM: ProductForm = {
   nom_ar: "",
   description_fr: "",
   description_ar: "",
+  description_longue_fr: "",
+  description_longue_ar: "",
+  usages_fr: "",
+  usages_ar: "",
+  maintenance_fr: "",
+  maintenance_ar: "",
+  compatibilite_fr: "",
+  compatibilite_ar: "",
+  garantie_fr: "",
+  garantie_ar: "",
+  faq_fr: [],
+  faq_ar: [],
+  prix_min: "",
+  prix_max: "",
+  rating_value: "",
+  rating_count: "",
+  video_url: "",
   specs: "",
   images: [],
   pdf_url: "",
   brochure_pdf: "",
-  video_url: "",
   category_id: "",
   marque: "",
   modele: "",
@@ -114,6 +168,26 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
+}
+
+// Parse FAQ from DB — could be array, stringified JSON, or null.
+function parseFaq(val: unknown): FaqItem[] {
+  if (!val) return [];
+  let arr: unknown = val;
+  if (typeof val === "string") {
+    try {
+      arr = JSON.parse(val);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((item: any) => ({
+      q: String(item?.q ?? item?.question ?? "").trim(),
+      a: String(item?.a ?? item?.answer ?? "").trim(),
+    }))
+    .filter((item) => item.q && item.a);
 }
 
 function rowToForm(row: ProductRow): ProductForm {
@@ -141,11 +215,27 @@ function rowToForm(row: ProductRow): ProductForm {
     nom_ar: row.nom_ar || "",
     description_fr: row.description_fr || "",
     description_ar: row.description_ar || "",
+    description_longue_fr: row.description_longue_fr || "",
+    description_longue_ar: row.description_longue_ar || "",
+    usages_fr: row.usages_fr || "",
+    usages_ar: row.usages_ar || "",
+    maintenance_fr: row.maintenance_fr || "",
+    maintenance_ar: row.maintenance_ar || "",
+    compatibilite_fr: row.compatibilite_fr || "",
+    compatibilite_ar: row.compatibilite_ar || "",
+    garantie_fr: row.garantie_fr || "",
+    garantie_ar: row.garantie_ar || "",
+    faq_fr: parseFaq(row.faq_fr),
+    faq_ar: parseFaq(row.faq_ar),
+    prix_min: row.prix_min != null ? String(row.prix_min) : "",
+    prix_max: row.prix_max != null ? String(row.prix_max) : "",
+    rating_value: row.rating_value != null ? String(row.rating_value) : "",
+    rating_count: row.rating_count != null ? String(row.rating_count) : "",
+    video_url: row.video_url || "",
     specs: specsText,
     images: Array.isArray(row.images) ? row.images.filter(Boolean) : [],
     pdf_url: row.pdf_url || "",
     brochure_pdf: row.brochure_pdf || "",
-    video_url: row.video_url || "",
     category_id: row.category_id || "",
     marque: row.marque || "",
     modele: row.modele || "",
@@ -180,11 +270,30 @@ function formToPayload(form: ProductForm) {
     nom_ar: form.nom_ar,
     description_fr: form.description_fr,
     description_ar: form.description_ar,
+    // Rich content fields — only sent if non-empty (the API converts
+    // empty strings to null).
+    description_longue_fr: form.description_longue_fr,
+    description_longue_ar: form.description_longue_ar,
+    usages_fr: form.usages_fr,
+    usages_ar: form.usages_ar,
+    maintenance_fr: form.maintenance_fr,
+    maintenance_ar: form.maintenance_ar,
+    compatibilite_fr: form.compatibilite_fr,
+    compatibilite_ar: form.compatibilite_ar,
+    garantie_fr: form.garantie_fr,
+    garantie_ar: form.garantie_ar,
+    faq_fr: form.faq_fr,
+    faq_ar: form.faq_ar,
+    prix_min: form.prix_min,
+    prix_max: form.prix_max,
+    rating_value: form.rating_value,
+    rating_count: form.rating_count,
+    video_url: form.video_url,
+    // Original fields
     specs,
     images: form.images.filter(Boolean),
     pdf_url: form.pdf_url || null,
     brochure_pdf: form.brochure_pdf || null,
-    video_url: form.video_url,
     category_id: form.category_id,
     marque: form.marque,
     modele: form.modele,
@@ -633,372 +742,563 @@ export function ProductsPanel() {
           </DialogHeader>
 
           <form onSubmit={save} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="p_nom_fr">{t("name_fr")}</Label>
-                <Input
-                  id="p_nom_fr"
-                  value={form.nom_fr}
-                  onChange={(e) => handleNameFrChange(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="p_nom_ar">{t("name_ar")}</Label>
-                <Input
-                  id="p_nom_ar"
-                  value={form.nom_ar}
-                  onChange={(e) => update("nom_ar", e.target.value)}
-                  dir="rtl"
-                />
-              </div>
-            </div>
+            <Tabs defaultValue="general" className="w-full">
+              <TabsList className="flex w-full flex-wrap gap-1 bg-slate-100 p-1">
+                <TabsTrigger value="general">Général</TabsTrigger>
+                <TabsTrigger value="seo">
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  Contenu SEO/IA
+                </TabsTrigger>
+                <TabsTrigger value="faq">FAQ</TabsTrigger>
+                <TabsTrigger value="media">Médias</TabsTrigger>
+                <TabsTrigger value="params">Paramètres</TabsTrigger>
+              </TabsList>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="p_slug">{t("slug")}</Label>
-                <Input
-                  id="p_slug"
-                  value={form.slug}
-                  onChange={(e) => handleSlugChange(e.target.value)}
-                  placeholder="fauteuil-dental-x"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="p_cat">{t("categoryField")}</Label>
-                <Select
-                  value={form.category_id || undefined}
-                  onValueChange={(v) => update("category_id", v)}
-                >
-                  <SelectTrigger id="p_cat">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name[lang] || c.name.fr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+              {/* === ONGLET GÉNÉRAL === */}
+              <TabsContent value="general" className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_nom_fr">{t("name_fr")}</Label>
+                    <Input
+                      id="p_nom_fr"
+                      value={form.nom_fr}
+                      onChange={(e) => handleNameFrChange(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_nom_ar">{t("name_ar")}</Label>
+                    <Input
+                      id="p_nom_ar"
+                      value={form.nom_ar}
+                      onChange={(e) => update("nom_ar", e.target.value)}
+                      dir="rtl"
+                    />
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="p_marque">{t("brand")}</Label>
-                <Input
-                  id="p_marque"
-                  value={form.marque}
-                  onChange={(e) => update("marque", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="p_modele">{t("model")}</Label>
-                <Input
-                  id="p_modele"
-                  value={form.modele}
-                  onChange={(e) => update("modele", e.target.value)}
-                />
-              </div>
-            </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_slug">{t("slug")}</Label>
+                    <Input
+                      id="p_slug"
+                      value={form.slug}
+                      onChange={(e) => handleSlugChange(e.target.value)}
+                      placeholder="fauteuil-dental-x"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_cat">{t("categoryField")}</Label>
+                    <Select
+                      value={form.category_id || undefined}
+                      onValueChange={(v) => update("category_id", v)}
+                    >
+                      <SelectTrigger id="p_cat">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name[lang] || c.name.fr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="p_desc_fr">{t("description")} (FR)</Label>
-              <Textarea
-                id="p_desc_fr"
-                value={form.description_fr}
-                onChange={(e) => update("description_fr", e.target.value)}
-                rows={4}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="p_desc_ar">{t("description")} (AR)</Label>
-              <Textarea
-                id="p_desc_ar"
-                value={form.description_ar}
-                onChange={(e) => update("description_ar", e.target.value)}
-                rows={4}
-                dir="rtl"
-              />
-            </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_marque">{t("brand")}</Label>
+                    <Input
+                      id="p_marque"
+                      value={form.marque}
+                      onChange={(e) => update("marque", e.target.value)}
+                      placeholder="Silver Fox, ICANCLAVE, OWANDY, Launca"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_modele">{t("model")}</Label>
+                    <Input
+                      id="p_modele"
+                      value={form.modele}
+                      onChange={(e) => update("modele", e.target.value)}
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="p_specs">{t("specsField")}</Label>
-              <Textarea
-                id="p_specs"
-                value={form.specs}
-                onChange={(e) => update("specs", e.target.value)}
-                rows={5}
-                placeholder={"Voltage|220V\nPoids|50 kg"}
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_desc_fr">{t("description")} courte (FR)</Label>
+                  <Textarea
+                    id="p_desc_fr"
+                    value={form.description_fr}
+                    onChange={(e) => update("description_fr", e.target.value)}
+                    rows={3}
+                    placeholder="Description courte affichée dans le catalogue et la carte produit."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_desc_ar">{t("description")} courte (AR)</Label>
+                  <Textarea
+                    id="p_desc_ar"
+                    value={form.description_ar}
+                    onChange={(e) => update("description_ar", e.target.value)}
+                    rows={3}
+                    dir="rtl"
+                  />
+                </div>
 
-            {/* ----- Images (multi-upload) ----- */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label>{t("images")}</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={!!uploadingImages}
-                >
-                  {uploadingImages ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t("uploading")} {uploadingImages.current}/
-                      {uploadingImages.total}
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      {t("addImage")}
-                    </>
-                  )}
-                </Button>
-              </div>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                multiple
-                className="hidden"
-                onChange={handleImageFiles}
-              />
-              {form.images.length === 0 ? (
-                <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">
-                  {t("noFile")}
-                </p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                  {form.images.map((fn, idx) => {
-                    const url = getProductImageUrl(fn);
-                    return (
-                      <div
-                        key={`${fn}-${idx}`}
-                        className="group relative overflow-hidden rounded-md border border-slate-200 bg-slate-50"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => openLightbox(fn)}
-                          disabled={!url}
-                          className="relative block aspect-square w-full disabled:cursor-default"
-                          aria-label={url ? "Zoom" : undefined}
-                          title={url ? "Zoom" : undefined}
-                        >
-                          {url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={url}
-                              alt={fn}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-slate-300">
-                              <ImageIcon className="h-8 w-8" />
-                            </div>
-                          )}
-                          {url && (
-                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity duration-150 group-hover:bg-black/30 group-hover:opacity-100">
-                              <ZoomIn className="h-7 w-7 text-white" />
-                            </span>
-                          )}
-                        </button>
-                        <div
-                          className="truncate px-2 py-1 text-[11px] text-slate-600"
-                          title={fn}
-                        >
-                          {fn}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeImage(idx)}
-                          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white opacity-90 hover:bg-red-700 hover:opacity-100"
-                          aria-label={t("removeImage")}
-                          title={t("removeImage")}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_specs">{t("specsField")}</Label>
+                  <Textarea
+                    id="p_specs"
+                    value={form.specs}
+                    onChange={(e) => update("specs", e.target.value)}
+                    rows={5}
+                    placeholder={"Voltage|220V\nPoids|50 kg"}
+                  />
+                  <p className="text-xs text-slate-500">
+                    Une spec par ligne, format : <code>Label|Valeur</code>
+                  </p>
+                </div>
+              </TabsContent>
+
+              {/* === ONGLET CONTENU SEO/IA === */}
+              <TabsContent value="seo" className="space-y-4 pt-4">
+                <Card className="border-brand-200 bg-brand-50/30">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+                      <div className="text-xs text-slate-600">
+                        <strong className="text-slate-900">Pourquoi ce contenu est important ?</strong>
+                        <br />
+                        Ces champs alimentent les <strong>fiches produits riches</strong> (onglets sur la page publique),
+                        le <strong>JSON-LD Product schema</strong> (rich snippets Google) et le bloc
+                        <strong> sr-only pour les IA</strong> (ChatGPT, Claude, Perplexity). Plus le contenu est
+                        détaillé, mieux le produit ressort dans les recherches d'achat.
                       </div>
-                    );
-                  })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_desc_longue_fr">Description longue (FR) — Présentation détaillée</Label>
+                  <HtmlEditor
+                    value={form.description_longue_fr}
+                    onChange={(v) => update("description_longue_fr", v)}
+                    placeholder="Description complète du produit : caractéristiques principales, avantages, technologie... (1500+ mots recommandés pour le SEO)"
+                    rows={10}
+                  />
                 </div>
-              )}
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="p_cible">{t("audience_field")}</Label>
-              <Input
-                id="p_cible"
-                value={form.cible}
-                onChange={(e) => update("cible", e.target.value)}
-                placeholder="cabinet, hôpital"
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_usages_fr">Usages recommandés (FR)</Label>
+                  <HtmlEditor
+                    value={form.usages_fr}
+                    onChange={(v) => update("usages_fr", v)}
+                    placeholder="Cabinet concerné, spécialités recommandées, volume de soins..."
+                    rows={6}
+                  />
+                </div>
 
-            {/* ----- PDF (single upload) ----- */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label>{t("pdfUrl")}</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => pdfInputRef.current?.click()}
-                  disabled={uploadingPdf}
-                >
-                  {uploadingPdf ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t("uploading")}
-                    </>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_maintenance_fr">Maintenance (FR)</Label>
+                  <HtmlEditor
+                    value={form.maintenance_fr}
+                    onChange={(v) => update("maintenance_fr", v)}
+                    placeholder="Protocole d'entretien : quotidien, mensuel, annuel. Pièces à remplacer..."
+                    rows={6}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_compat_fr">Compatibilité (FR)</Label>
+                  <HtmlEditor
+                    value={form.compatibilite_fr}
+                    onChange={(v) => update("compatibilite_fr", v)}
+                    placeholder="Accessoires compatibles, pièces détachées disponibles..."
+                    rows={5}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_garantie_fr">Garantie (FR)</Label>
+                  <HtmlEditor
+                    value={form.garantie_fr}
+                    onChange={(v) => update("garantie_fr", v)}
+                    placeholder="Durée de garantie, conditions, extension possible..."
+                    rows={5}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_prix_min">Prix min (DZD)</Label>
+                    <Input
+                      id="p_prix_min"
+                      type="number"
+                      value={form.prix_min}
+                      onChange={(e) => update("prix_min", e.target.value)}
+                      placeholder="500000"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_prix_max">Prix max (DZD)</Label>
+                    <Input
+                      id="p_prix_max"
+                      type="number"
+                      value={form.prix_max}
+                      onChange={(e) => update("prix_max", e.target.value)}
+                      placeholder="800000"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_rating_value">Note moyenne (0-5)</Label>
+                    <Input
+                      id="p_rating_value"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="5"
+                      value={form.rating_value}
+                      onChange={(e) => update("rating_value", e.target.value)}
+                      placeholder="4.5"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_rating_count">Nombre d'avis</Label>
+                    <Input
+                      id="p_rating_count"
+                      type="number"
+                      min="0"
+                      value={form.rating_count}
+                      onChange={(e) => update("rating_count", e.target.value)}
+                      placeholder="12"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_video_url">URL vidéo (YouTube/Vimeo embed)</Label>
+                  <Input
+                    id="p_video_url"
+                    type="url"
+                    value={form.video_url}
+                    onChange={(e) => update("video_url", e.target.value)}
+                    placeholder="https://www.youtube.com/embed/..."
+                  />
+                </div>
+              </TabsContent>
+
+              {/* === ONGLET FAQ === */}
+              <TabsContent value="faq" className="space-y-4 pt-4">
+                <Card className="border-brand-200 bg-brand-50/30">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+                      <div className="text-xs text-slate-600">
+                        <strong className="text-slate-900">FAQ = Featured Snippets Google</strong>
+                        <br />
+                        Chaque question/réponse est automatiquement transformée en schema
+                        <strong> FAQPage JSON-LD</strong> sur la page publique. Google peut alors
+                        afficher votre réponse dans les <strong>"People Also Ask"</strong> et les
+                        <strong> Featured Snippets</strong> (encadrés en haut des résultats).
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div>
+                  <Label className="mb-2 block">FAQ en français</Label>
+                  <FaqEditor
+                    value={form.faq_fr}
+                    onChange={(items) => update("faq_fr", items)}
+                  />
+                </div>
+
+                <div>
+                  <Label className="mb-2 block">FAQ en arabe (optionnel)</Label>
+                  <FaqEditor
+                    value={form.faq_ar}
+                    onChange={(items) => update("faq_ar", items)}
+                  />
+                </div>
+              </TabsContent>
+
+              {/* === ONGLET MÉDIAS === */}
+              <TabsContent value="media" className="space-y-4 pt-4">
+                {/* ----- Images (multi-upload) ----- */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>{t("images")}</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={!!uploadingImages}
+                    >
+                      {uploadingImages ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {t("uploading")} {uploadingImages.current}/{uploadingImages.total}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          {t("addImage")}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    multiple
+                    className="hidden"
+                    onChange={handleImageFiles}
+                  />
+                  {form.images.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">
+                      {t("noFile")}
+                    </p>
                   ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      {t("uploadPdf")}
-                    </>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                      {form.images.map((fn, idx) => {
+                        const url = getProductImageUrl(fn);
+                        return (
+                          <div
+                            key={`${fn}-${idx}`}
+                            className="group relative overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => openLightbox(fn)}
+                              disabled={!url}
+                              className="relative block aspect-square w-full disabled:cursor-default"
+                              aria-label={url ? "Zoom" : undefined}
+                              title={url ? "Zoom" : undefined}
+                            >
+                              {url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={url}
+                                  alt={fn}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-slate-300">
+                                  <ImageIcon className="h-8 w-8" />
+                                </div>
+                              )}
+                              {url && (
+                                <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity duration-150 group-hover:bg-black/30 group-hover:opacity-100">
+                                  <ZoomIn className="h-7 w-7 text-white" />
+                                </span>
+                              )}
+                            </button>
+                            <div
+                              className="truncate px-2 py-1 text-[11px] text-slate-600"
+                              title={fn}
+                            >
+                              {fn}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeImage(idx)}
+                              className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white opacity-90 hover:bg-red-700 hover:opacity-100"
+                              aria-label={t("removeImage")}
+                              title={t("removeImage")}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
-                </Button>
-              </div>
-              <input
-                ref={pdfInputRef}
-                type="file"
-                accept="application/pdf,.pdf"
-                className="hidden"
-                onChange={handlePdfFile}
-              />
-              {form.pdf_url ? (
-                <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                  <FileText className="h-4 w-4 shrink-0 text-red-600" />
-                  <span
-                    className="flex-1 truncate text-sm text-slate-700"
-                    title={form.pdf_url}
-                  >
-                    {form.pdf_url}
-                  </span>
-                  <a
-                    href={getProductImageUrl(form.pdf_url) || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-medium text-brand-700 hover:underline"
-                  >
-                    {t("view")}
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => update("pdf_url", "")}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-700"
-                    aria-label={t("removeFile")}
-                    title={t("removeFile")}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
-              ) : (
-                <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-400">
-                  {t("noFile")}
-                </p>
-              )}
-            </div>
 
-            {/* ----- Brochure PDF (single upload) ----- */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label>{t("brochurePdf")}</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => brochureInputRef.current?.click()}
-                  disabled={uploadingBrochure}
-                >
-                  {uploadingBrochure ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t("uploading")}
-                    </>
+                {/* ----- PDF (single upload) ----- */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>{t("pdfUrl")}</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => pdfInputRef.current?.click()}
+                      disabled={uploadingPdf}
+                    >
+                      {uploadingPdf ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {t("uploading")}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          {t("uploadPdf")}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="hidden"
+                    onChange={handlePdfFile}
+                  />
+                  {form.pdf_url ? (
+                    <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                      <FileText className="h-4 w-4 shrink-0 text-red-600" />
+                      <span
+                        className="flex-1 truncate text-sm text-slate-700"
+                        title={form.pdf_url}
+                      >
+                        {form.pdf_url}
+                      </span>
+                      <a
+                        href={getProductImageUrl(form.pdf_url) || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-brand-700 hover:underline"
+                      >
+                        {t("view")}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => update("pdf_url", "")}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-700"
+                        aria-label={t("removeFile")}
+                        title={t("removeFile")}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      {t("uploadPdf")}
-                    </>
+                    <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-400">
+                      {t("noFile")}
+                    </p>
                   )}
-                </Button>
-              </div>
-              <input
-                ref={brochureInputRef}
-                type="file"
-                accept="application/pdf,.pdf"
-                className="hidden"
-                onChange={handleBrochureFile}
-              />
-              {form.brochure_pdf ? (
-                <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                  <FileText className="h-4 w-4 shrink-0 text-red-600" />
-                  <span
-                    className="flex-1 truncate text-sm text-slate-700"
-                    title={form.brochure_pdf}
-                  >
-                    {form.brochure_pdf}
-                  </span>
-                  <a
-                    href={getProductImageUrl(form.brochure_pdf) || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-medium text-brand-700 hover:underline"
-                  >
-                    {t("view")}
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => update("brochure_pdf", "")}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-700"
-                    aria-label={t("removeFile")}
-                    title={t("removeFile")}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
-              ) : (
-                <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-400">
-                  {t("noFile")}
-                </p>
-              )}
-            </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="p_ordre">{t("order")}</Label>
-                <Input
-                  id="p_ordre"
-                  type="number"
-                  value={form.ordre}
-                  onChange={(e) => update("ordre", Number(e.target.value))}
-                />
-              </div>
-              <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={form.en_vedette}
-                  onChange={(e) => update("en_vedette", e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
-                />
-                {t("featured")}
-              </label>
-              <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={form.disponible}
-                  onChange={(e) => update("disponible", e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
-                />
-                {t("available")}
-              </label>
-            </div>
+                {/* ----- Brochure PDF (single upload) ----- */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>{t("brochurePdf")}</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => brochureInputRef.current?.click()}
+                      disabled={uploadingBrochure}
+                    >
+                      {uploadingBrochure ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {t("uploading")}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          {t("uploadPdf")}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <input
+                    ref={brochureInputRef}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="hidden"
+                    onChange={handleBrochureFile}
+                  />
+                  {form.brochure_pdf ? (
+                    <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                      <FileText className="h-4 w-4 shrink-0 text-red-600" />
+                      <span
+                        className="flex-1 truncate text-sm text-slate-700"
+                        title={form.brochure_pdf}
+                      >
+                        {form.brochure_pdf}
+                      </span>
+                      <a
+                        href={getProductImageUrl(form.brochure_pdf) || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-brand-700 hover:underline"
+                      >
+                        {t("view")}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => update("brochure_pdf", "")}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50 hover:text-red-700"
+                        aria-label={t("removeFile")}
+                        title={t("removeFile")}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-400">
+                      {t("noFile")}
+                    </p>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* === ONGLET PARAMÈTRES === */}
+              <TabsContent value="params" className="space-y-4 pt-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="p_cible">{t("audience_field")}</Label>
+                  <Input
+                    id="p_cible"
+                    value={form.cible}
+                    onChange={(e) => update("cible", e.target.value)}
+                    placeholder="cabinet, hôpital"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p_ordre">{t("order")}</Label>
+                    <Input
+                      id="p_ordre"
+                      type="number"
+                      value={form.ordre}
+                      onChange={(e) => update("ordre", Number(e.target.value))}
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={form.en_vedette}
+                      onChange={(e) => update("en_vedette", e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
+                    />
+                    {t("featured")}
+                  </label>
+                  <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={form.disponible}
+                      onChange={(e) => update("disponible", e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
+                    />
+                    {t("available")}
+                  </label>
+                </div>
+              </TabsContent>
+            </Tabs>
 
             <DialogFooter className="pt-2">
               <DialogClose asChild>
