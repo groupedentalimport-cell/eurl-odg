@@ -33,66 +33,80 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
   let nomFr = "";
   let descriptionFr = "";
+  let descriptionLongueFr = "";
   let brand = "";
   let modele = "";
 
   try {
     const client = getServerClient();
+    // IMPORTANT: the DB columns are `marque` and `modele` (NOT `brand`).
+    // The previous version of this query selected `brand` which doesn't
+    // exist → the title always fell back to the generic "Produit" title.
     const { data, error } = await client
       .from("products")
-      .select("slug, nom_fr, description_fr, brand, modele")
+      .select("slug, nom_fr, description_fr, description_longue_fr, marque, modele")
       .eq("slug", slug)
       .maybeSingle();
 
     if (!error && data) {
       nomFr = String(data.nom_fr || "").trim();
       descriptionFr = String(data.description_fr || "").trim();
-      brand = String(data.brand || "").trim();
+      descriptionLongueFr = String(data.description_longue_fr || "").trim();
+      brand = String(data.marque || "").trim();
       modele = String(data.modele || "").trim();
     }
   } catch {
     // Supabase not configured or table missing — fall back to generic title.
     return {
       ...FALLBACK,
-      alternates: { canonical: `/produit/${slug}` },
+      alternates: { canonical: "/produit/" + slug },
     };
   }
 
   if (!nomFr) {
     return {
       ...FALLBACK,
-      alternates: { canonical: `/produit/${slug}` },
+      alternates: { canonical: "/produit/" + slug },
     };
   }
 
-  const title = `${nomFr}${brand ? ` — ${brand}${modele ? ` ${modele}` : ""}` : ""}`;
+  // Title format: "Fauteuil dentaire classique — Silver Fox 8000C"
+  // Falls back to just the name if brand is missing.
+  const title = nomFr + (brand ? " — " + brand + (modele ? " " + modele : "") : "");
+
+  // Description: prefer the short description_fr (HTML stripped), fall back
+  // to a stripped version of description_longue_fr (first 155 chars), then
+  // to the generic FALLBACK description.
+  const stripHtml = (s: string) =>
+    s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const description =
-    descriptionFr.slice(0, 155) ||
+    stripHtml(descriptionFr).slice(0, 155) ||
+    stripHtml(descriptionLongueFr).slice(0, 155) ||
     FALLBACK.description ||
     "";
+
+  const articleUrl = SITE_URL + "/produit/" + slug;
 
   return {
     title,
     description,
     alternates: {
-      canonical: `/produit/${slug}`,
+      canonical: "/produit/" + slug,
     },
     openGraph: {
       type: "website",
-      title: `${title} — OUADAH DENTAL GROUPE`,
+      title: title + " — OUADAH DENTAL GROUPE",
       description,
-      url: `/produit/${slug}`,
+      url: articleUrl,
       siteName: "OUADAH DENTAL GROUPE",
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} — OUADAH DENTAL GROUPE`,
+      title: title + " — OUADAH DENTAL GROUPE",
       description,
     },
     other: {
-      // Absolute URL for og:url since OG scrapers don't resolve metadataBase
-      // consistently across all crawlers.
-      "og:url": `${SITE_URL}/produit/${slug}`,
+      "og:url": articleUrl,
     },
   };
 }
