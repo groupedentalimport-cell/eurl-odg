@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Upload,
   Image as ImageIcon,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -26,9 +27,12 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { useTranslation } from "@/lib/i18n";
 import { getBlogImageUrl } from "@/lib/supabase";
+import { HtmlEditor } from "@/components/dental/admin/HtmlEditor";
+import { FaqEditor, type FaqItem } from "@/components/dental/admin/FaqEditor";
 
 interface PostRow {
   id: string;
@@ -37,6 +41,15 @@ interface PostRow {
   titre_ar: string | null;
   contenu_fr: string | null;
   contenu_ar: string | null;
+  // Rich content fields (added 2026-07-29 for SEO/IA).
+  excerpt_fr?: string | null;
+  excerpt_ar?: string | null;
+  meta_description_fr?: string | null;
+  meta_description_ar?: string | null;
+  faq_fr?: Array<{ q: string; a: string }> | string | null;
+  faq_ar?: Array<{ q: string; a: string }> | string | null;
+  category?: string | null;
+  tags?: string[] | null;
   image_url: string | null;
   publie: boolean | null;
   auteur: string | null;
@@ -51,6 +64,14 @@ interface PostForm {
   titre_ar: string;
   contenu_fr: string;
   contenu_ar: string;
+  excerpt_fr: string;
+  excerpt_ar: string;
+  meta_description_fr: string;
+  meta_description_ar: string;
+  faq_fr: FaqItem[];
+  faq_ar: FaqItem[];
+  category: string;
+  tags: string;
   image_url: string;
   auteur: string;
   publie: boolean;
@@ -62,10 +83,29 @@ const EMPTY_FORM: PostForm = {
   titre_ar: "",
   contenu_fr: "",
   contenu_ar: "",
+  excerpt_fr: "",
+  excerpt_ar: "",
+  meta_description_fr: "",
+  meta_description_ar: "",
+  faq_fr: [],
+  faq_ar: [],
+  category: "",
+  tags: "",
   image_url: "",
   auteur: "Equipe ODG",
   publie: true,
 };
+
+const CATEGORIES = [
+  "Fauteuil dentaire",
+  "Stérilisation",
+  "Radiologie",
+  "Implantologie",
+  "Maintenance",
+  "Conseils pratiques",
+  "Achat et devis",
+  "Actualités",
+];
 
 function slugify(s: string): string {
   return (s || "")
@@ -77,6 +117,26 @@ function slugify(s: string): string {
     .slice(0, 80);
 }
 
+// Parse FAQ from DB — could be array, stringified JSON, or null.
+function parseFaq(val: unknown): FaqItem[] {
+  if (!val) return [];
+  let arr: unknown = val;
+  if (typeof val === "string") {
+    try {
+      arr = JSON.parse(val);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((item: any) => ({
+      q: String(item?.q ?? item?.question ?? "").trim(),
+      a: String(item?.a ?? item?.answer ?? "").trim(),
+    }))
+    .filter((item) => item.q && item.a);
+}
+
 function rowToForm(row: PostRow): PostForm {
   return {
     id: row.id,
@@ -85,6 +145,14 @@ function rowToForm(row: PostRow): PostForm {
     titre_ar: row.titre_ar || "",
     contenu_fr: row.contenu_fr || "",
     contenu_ar: row.contenu_ar || "",
+    excerpt_fr: row.excerpt_fr || "",
+    excerpt_ar: row.excerpt_ar || "",
+    meta_description_fr: row.meta_description_fr || "",
+    meta_description_ar: row.meta_description_ar || "",
+    faq_fr: parseFaq(row.faq_fr),
+    faq_ar: parseFaq(row.faq_ar),
+    category: row.category || "",
+    tags: Array.isArray(row.tags) ? row.tags.join(", ") : "",
     image_url: row.image_url || "",
     auteur: row.auteur || "Equipe ODG",
     publie: row.publie !== false,
@@ -98,6 +166,14 @@ function formToPayload(form: PostForm) {
     titre_ar: form.titre_ar,
     contenu_fr: form.contenu_fr,
     contenu_ar: form.contenu_ar,
+    excerpt_fr: form.excerpt_fr,
+    excerpt_ar: form.excerpt_ar,
+    meta_description_fr: form.meta_description_fr,
+    meta_description_ar: form.meta_description_ar,
+    faq_fr: form.faq_fr,
+    faq_ar: form.faq_ar,
+    category: form.category,
+    tags: form.tags,
     image_url: form.image_url || null,
     auteur: form.auteur,
     publie: form.publie,
@@ -349,10 +425,11 @@ export function ArticlesPanel() {
         </Card>
       ) : (
         <div className="max-h-[70vh] overflow-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full min-w-[760px] border-collapse text-sm">
+          <table className="w-full min-w-[860px] border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">{t("title_fr")}</th>
+                <th className="px-4 py-3 font-semibold">Catégorie</th>
                 <th className="px-4 py-3 font-semibold">{t("slug")}</th>
                 <th className="px-4 py-3 font-semibold">{t("author")}</th>
                 <th className="px-4 py-3 font-semibold">{lang === "ar" ? "التاريخ" : "Date"}</th>
@@ -374,6 +451,15 @@ export function ArticlesPanel() {
                         {row.titre_ar}
                       </div>
                     ) : null}
+                  </td>
+                  <td className="px-4 py-3">
+                    {row.category ? (
+                      <Badge variant="secondary" className="text-xs">
+                        {row.category}
+                      </Badge>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-slate-600">{row.slug}</td>
                   <td className="px-4 py-3 text-slate-700">{row.auteur || "—"}</td>
@@ -434,162 +520,360 @@ export function ArticlesPanel() {
           </DialogHeader>
 
           <form onSubmit={save} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="a_titre_fr">{t("title_fr")}</Label>
-                <Input
-                  id="a_titre_fr"
-                  value={form.titre_fr}
-                  onChange={(e) => handleTitleFrChange(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="a_titre_ar">{t("title_ar")}</Label>
-                <Input
-                  id="a_titre_ar"
-                  value={form.titre_ar}
-                  onChange={(e) => update("titre_ar", e.target.value)}
-                  dir="rtl"
-                />
-              </div>
-            </div>
+            <Tabs defaultValue="general" className="w-full">
+              <TabsList className="flex w-full flex-wrap gap-1 bg-slate-100 p-1">
+                <TabsTrigger value="general">Général</TabsTrigger>
+                <TabsTrigger value="content">
+                  <FileText className="mr-1 h-3 w-3" />
+                  Contenu
+                </TabsTrigger>
+                <TabsTrigger value="seo">
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  SEO/IA
+                </TabsTrigger>
+                <TabsTrigger value="faq">FAQ</TabsTrigger>
+              </TabsList>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="a_slug">{t("slug")}</Label>
-                <Input
-                  id="a_slug"
-                  value={form.slug}
-                  onChange={(e) => handleSlugChange(e.target.value)}
-                  placeholder="mon-article"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="a_auteur">{t("author")}</Label>
-                <Input
-                  id="a_auteur"
-                  value={form.auteur}
-                  onChange={(e) => update("auteur", e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* ----- Image (single upload) ----- */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label>{t("images")}</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={uploadingImage}
-                >
-                  {uploadingImage ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t("uploading")}
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      {t("uploadImage")}
-                    </>
-                  )}
-                </Button>
-              </div>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={handleImageFile}
-              />
-              {form.image_url ? (
-                <div className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <div className="h-20 w-28 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
-                    {(() => {
-                      const url = getBlogImageUrl(form.image_url);
-                      return url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={url}
-                          alt={form.image_url}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-slate-300">
-                          <ImageIcon className="h-6 w-6" />
-                        </div>
-                      );
-                    })()}
+              {/* === ONGLET GÉNÉRAL === */}
+              <TabsContent value="general" className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="a_titre_fr">{t("title_fr")}</Label>
+                    <Input
+                      id="a_titre_fr"
+                      value={form.titre_fr}
+                      onChange={(e) => handleTitleFrChange(e.target.value)}
+                      required
+                    />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className="truncate text-sm text-slate-700"
-                      title={form.image_url}
-                    >
-                      {form.image_url}
-                    </p>
-                    <div className="mt-2 flex gap-3">
-                      <a
-                        href={getBlogImageUrl(form.image_url) || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium text-brand-700 hover:underline"
-                      >
-                        {t("view")}
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => update("image_url", "")}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        {t("removeFile")}
-                      </button>
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="a_titre_ar">{t("title_ar")}</Label>
+                    <Input
+                      id="a_titre_ar"
+                      value={form.titre_ar}
+                      onChange={(e) => update("titre_ar", e.target.value)}
+                      dir="rtl"
+                    />
                   </div>
                 </div>
-              ) : (
-                <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-sm text-slate-400">
-                  {t("noFile")}
-                </p>
-              )}
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="a_contenu_fr">{t("content_fr")}</Label>
-              <Textarea
-                id="a_contenu_fr"
-                value={form.contenu_fr}
-                onChange={(e) => update("contenu_fr", e.target.value)}
-                rows={8}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="a_contenu_ar">{t("content_ar")}</Label>
-              <Textarea
-                id="a_contenu_ar"
-                value={form.contenu_ar}
-                onChange={(e) => update("contenu_ar", e.target.value)}
-                rows={8}
-                dir="rtl"
-              />
-            </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="a_slug">{t("slug")}</Label>
+                    <Input
+                      id="a_slug"
+                      value={form.slug}
+                      onChange={(e) => handleSlugChange(e.target.value)}
+                      placeholder="mon-article"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="a_auteur">{t("author")}</Label>
+                    <Input
+                      id="a_auteur"
+                      value={form.auteur}
+                      onChange={(e) => update("auteur", e.target.value)}
+                    />
+                  </div>
+                </div>
 
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={form.publie}
-                onChange={(e) => update("publie", e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
-              />
-              {t("published")}
-            </label>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="a_category">Catégorie</Label>
+                    <select
+                      id="a_category"
+                      value={form.category}
+                      onChange={(e) => update("category", e.target.value)}
+                      className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">— Non classé —</option>
+                      {CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="a_tags">Tags (mots-clés, séparés par virgules)</Label>
+                    <Input
+                      id="a_tags"
+                      value={form.tags}
+                      onChange={(e) => update("tags", e.target.value)}
+                      placeholder="fauteuil dentaire, Silver Fox, guide"
+                    />
+                  </div>
+                </div>
+
+                {/* ----- Image (single upload) ----- */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>{t("images")}</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploadingImage}
+                    >
+                      {uploadingImage ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {t("uploading")}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          {t("uploadImage")}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleImageFile}
+                  />
+                  {form.image_url ? (
+                    <div className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                      <div className="h-20 w-28 shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
+                        {(() => {
+                          const url = getBlogImageUrl(form.image_url);
+                          return url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={url}
+                              alt={form.image_url}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-slate-300">
+                              <ImageIcon className="h-6 w-6" />
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="truncate text-sm text-slate-700"
+                          title={form.image_url}
+                        >
+                          {form.image_url}
+                        </p>
+                        <div className="mt-2 flex gap-3">
+                          <a
+                            href={getBlogImageUrl(form.image_url) || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-brand-700 hover:underline"
+                          >
+                            {t("view")}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => update("image_url", "")}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            {t("removeFile")}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-sm text-slate-400">
+                      {t("noFile")}
+                    </p>
+                  )}
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={form.publie}
+                    onChange={(e) => update("publie", e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
+                  />
+                  {t("published")}
+                </label>
+              </TabsContent>
+
+              {/* === ONGLET CONTENU === */}
+              <TabsContent value="content" className="space-y-4 pt-4">
+                <Card className="border-brand-200 bg-brand-50/30">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+                      <div className="text-xs text-slate-600">
+                        <strong className="text-slate-900">Contenu de l'article</strong>
+                        <br />
+                        Utilisez l'éditeur pour structurer le contenu avec des titres
+                        <strong> &lt;h2&gt;</strong> et <strong>&lt;h3&gt;</strong>. Les titres
+                        qui se terminent par <strong>"?"</strong> suivis d'un paragraphe
+                        sont automatiquement transformés en schema FAQPage JSON-LD sur la
+                        page publique (Featured Snippets Google).
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="a_contenu_fr">{t("content_fr")}</Label>
+                  <HtmlEditor
+                    value={form.contenu_fr}
+                    onChange={(v) => update("contenu_fr", v)}
+                    placeholder="Contenu de l'article en français. Utilisez les titres H2/H3 pour structurer. Les questions en H2 (?) génèrent automatiquement le schema FAQPage."
+                    rows={12}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="a_contenu_ar">{t("content_ar")}</Label>
+                  <HtmlEditor
+                    value={form.contenu_ar}
+                    onChange={(v) => update("contenu_ar", v)}
+                    placeholder="محتوى المقال بالعربية"
+                    rows={10}
+                    dir="rtl"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="a_excerpt_fr">Extrait / Résumé (FR) — bloc "En bref"</Label>
+                  <Textarea
+                    id="a_excerpt_fr"
+                    value={form.excerpt_fr}
+                    onChange={(e) => update("excerpt_fr", e.target.value)}
+                    rows={3}
+                    placeholder="Résumé court (200 caractères max) affiché en haut de l'article dans le bloc 'En bref'. Si vide, auto-extrait du contenu. Ce résumé est repris par les IA (ChatGPT, Claude) pour citer l'article."
+                  />
+                  <p className="text-xs text-slate-500">
+                    {form.excerpt_fr.length}/200 caractères
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="a_excerpt_ar">Extrait / Résumé (AR)</Label>
+                  <Textarea
+                    id="a_excerpt_ar"
+                    value={form.excerpt_ar}
+                    onChange={(e) => update("excerpt_ar", e.target.value)}
+                    rows={3}
+                    dir="rtl"
+                  />
+                </div>
+              </TabsContent>
+
+              {/* === ONGLET SEO/IA === */}
+              <TabsContent value="seo" className="space-y-4 pt-4">
+                <Card className="border-brand-200 bg-brand-50/30">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+                      <div className="text-xs text-slate-600">
+                        <strong className="text-slate-900">Optimisation Google et IA</strong>
+                        <br />
+                        La <strong>meta description</strong> apparaît dans les résultats
+                        Google sous le titre. Si elle est vide, Google génère un extrait
+                        automatique (moins performant). Longueur optimale : 150-155 caractères.
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="a_meta_fr">Meta description (FR) — pour Google</Label>
+                  <Textarea
+                    id="a_meta_fr"
+                    value={form.meta_description_fr}
+                    onChange={(e) => update("meta_description_fr", e.target.value)}
+                    rows={3}
+                    placeholder="Description courte pour Google (155 caractères max). Ex: 'Guide complet pour choisir un fauteuil dentaire Silver Fox en Algérie : critères, prix, modèles Pro et Classic.'"
+                  />
+                  <p className="text-xs text-slate-500">
+                    {form.meta_description_fr.length}/155 caractères
+                    {form.meta_description_fr.length > 155 && (
+                      <span className="text-red-600 font-medium"> ⚠ Trop long</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="a_meta_ar">Meta description (AR)</Label>
+                  <Textarea
+                    id="a_meta_ar"
+                    value={form.meta_description_ar}
+                    onChange={(e) => update("meta_description_ar", e.target.value)}
+                    rows={3}
+                    dir="rtl"
+                  />
+                </div>
+
+                <Card className="border-slate-200 bg-slate-50/50">
+                  <CardContent className="p-4">
+                    <div className="text-xs text-slate-600">
+                      <strong className="text-slate-900">Aperçu Google</strong>
+                      <div className="mt-2 rounded border border-slate-200 bg-white p-3">
+                        <div className="text-xs text-emerald-700">
+                          ouadah-dental-groupe.netlify.app › blog › {form.slug || "mon-article"}
+                        </div>
+                        <div className="mt-0.5 text-base font-medium text-blue-700">
+                          {form.titre_fr || "Titre de l'article"}
+                        </div>
+                        <div className="mt-0.5 text-sm text-slate-600">
+                          {form.meta_description_fr || "La meta description apparaîtra ici. Si vide, Google extraira du contenu automatiquement."}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* === ONGLET FAQ === */}
+              <TabsContent value="faq" className="space-y-4 pt-4">
+                <Card className="border-brand-200 bg-brand-50/30">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+                      <div className="text-xs text-slate-600">
+                        <strong className="text-slate-900">FAQ explicite = Featured Snippets Google</strong>
+                        <br />
+                        Chaque question/réponse est automatiquement transformée en schema
+                        <strong> FAQPage JSON-LD</strong> sur la page publique. Google peut alors
+                        afficher votre réponse dans les <strong>"People Also Ask"</strong> et les
+                        <strong> Featured Snippets</strong>.
+                        <br />
+                        <br />
+                        <em>Note :</em> si vous laissez ce champ vide ET que votre contenu contient
+                        des <code>&lt;h2&gt;Question ?&lt;/h2&gt;</code> suivis d'un paragraphe,
+                        la FAQ sera auto-extraite du contenu. L'FAQ explicite ci-dessous prend
+                        toujours le dessus.
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div>
+                  <Label className="mb-2 block">FAQ en français</Label>
+                  <FaqEditor
+                    value={form.faq_fr}
+                    onChange={(items) => update("faq_fr", items)}
+                  />
+                </div>
+
+                <div>
+                  <Label className="mb-2 block">FAQ en arabe (optionnel)</Label>
+                  <FaqEditor
+                    value={form.faq_ar}
+                    onChange={(items) => update("faq_ar", items)}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
 
             <DialogFooter className="pt-2">
               <DialogClose asChild>

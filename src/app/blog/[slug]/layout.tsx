@@ -27,12 +27,19 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
   let titreFr = "";
   let auteur = "";
+  let metaDescriptionFr = "";
+  let excerptFr = "";
+  let contenuFr = "";
 
   try {
     const client = getServerClient();
+    // Fetch meta_description_fr, excerpt_fr, contenu_fr in addition to the
+    // basic fields so we can build a proper <meta description> tag.
+    // Fallback chain: meta_description_fr → excerpt_fr → stripped contenu_fr
+    // (first 155 chars) → generic FALLBACK.
     const { data, error } = await client
       .from("blog_posts")
-      .select("slug, titre_fr, auteur, publie")
+      .select("slug, titre_fr, auteur, publie, meta_description_fr, excerpt_fr, contenu_fr")
       .eq("slug", slug)
       .eq("publie", true)
       .maybeSingle();
@@ -40,6 +47,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     if (!error && data) {
       titreFr = String(data.titre_fr || "").trim();
       auteur = String(data.auteur || "").trim();
+      metaDescriptionFr = String(data.meta_description_fr || "").trim();
+      excerptFr = String(data.excerpt_fr || "").trim();
+      contenuFr = String(data.contenu_fr || "");
     }
   } catch {
     // Supabase not configured — fall back.
@@ -56,9 +66,16 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     };
   }
 
+  // Strip HTML from contenu_fr for the fallback description.
+  const stripHtml = (s: string) =>
+    s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
   const description =
-    "Article" + (auteur ? " par " + auteur : "") +
-    " — OUADAH DENTAL GROUPE. Conseils et actualités sur le matériel dentaire en Algérie.";
+    metaDescriptionFr.slice(0, 155) ||
+    excerptFr.slice(0, 155) ||
+    stripHtml(contenuFr).slice(0, 155) ||
+    ("Article" + (auteur ? " par " + auteur : "") +
+      " — OUADAH DENTAL GROUPE. Conseils et actualités sur le matériel dentaire en Algérie.");
 
   const articleUrl = SITE_URL + "/blog/" + slug;
 
@@ -125,20 +142,43 @@ function extractFaqsFromHtml(html: string): { q: string; a: string }[] {
   return faqs;
 }
 
+// Parse the faq_fr JSONB column — could be array, stringified JSON, or null.
+function parseFaqField(val: unknown): Array<{ q: string; a: string }> | null {
+  if (!val) return null;
+  let arr: unknown = val;
+  if (typeof val === "string") {
+    try {
+      arr = JSON.parse(val);
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(arr)) return null;
+  const cleaned = arr
+    .map((item: any) => ({
+      q: String(item?.q ?? item?.question ?? "").trim(),
+      a: String(item?.a ?? item?.answer ?? "").trim(),
+    }))
+    .filter((item) => item.q && item.a);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 async function buildArticleJsonLd(slug: string) {
   let titreFr = "";
   let auteur = "Equipe ODG";
   let contenuFr = "";
+  let excerptFr = "";
   let imageUrl = "";
   let datePublished = "";
   let dateModified = "";
+  let explicitFaqs: Array<{ q: string; a: string }> | null = null;
 
   try {
     const client = getServerClient();
     const { data } = await client
       .from("blog_posts")
       .select(
-        "slug, titre_fr, contenu_fr, image_url, auteur, publie, created_at, updated_at"
+        "slug, titre_fr, contenu_fr, excerpt_fr, image_url, auteur, publie, created_at, updated_at, faq_fr"
       )
       .eq("slug", slug)
       .eq("publie", true)
@@ -147,9 +187,12 @@ async function buildArticleJsonLd(slug: string) {
       titreFr = String(data.titre_fr || "").trim();
       auteur = String(data.auteur || auteur).trim();
       contenuFr = String(data.contenu_fr || "");
+      excerptFr = String(data.excerpt_fr || "");
       imageUrl = String(data.image_url || "");
       datePublished = data.created_at || "";
       dateModified = data.updated_at || datePublished;
+      // Parse explicit FAQ from DB (JSONB column).
+      explicitFaqs = parseFaqField(data.faq_fr);
     }
   } catch {
     // ignore — return null graph
@@ -157,7 +200,11 @@ async function buildArticleJsonLd(slug: string) {
 
   if (!titreFr) return null;
 
-  const faqs = extractFaqsFromHtml(contenuFr);
+  // Use explicit FAQ if available, otherwise fall back to auto-extraction
+  // from <h2>question?</h2><p>answer</p> patterns in the content.
+  const faqs = explicitFaqs && explicitFaqs.length > 0
+    ? explicitFaqs
+    : extractFaqsFromHtml(contenuFr);
   const blogBaseUrl = SITE_URL + "/blog";
   const articleUrl = blogBaseUrl + "/" + slug;
   const imageUrlAbs = imageUrl
@@ -166,14 +213,18 @@ async function buildArticleJsonLd(slug: string) {
         : SITE_URL + (imageUrl.startsWith("/") ? "" : "/") + imageUrl)
     : SITE_URL + "/og.jpg";
 
+  // Description for BlogPosting schema: prefer excerpt_fr (admin-curated),
+  // fall back to stripped contenu_fr (first 200 chars).
+  const stripHtml = (s: string) =>
+    s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const description = excerptFr || stripHtml(contenuFr).slice(0, 200);
+
   const graph: any[] = [
     {
       "@type": "BlogPosting",
       "@id": articleUrl + "#article",
       headline: titreFr,
-      description:
-        contenuFr.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200) ||
-        ("Article par " + auteur + " — OUADAH DENTAL GROUPE."),
+      description: description || ("Article par " + auteur + " — OUADAH DENTAL GROUPE."),
       image: {
         "@type": "ImageObject",
         url: imageUrlAbs,

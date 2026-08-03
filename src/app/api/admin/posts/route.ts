@@ -25,17 +25,75 @@ function getClient() {
   }
 }
 
+// Normalize FAQ payload — accept both array of {q,a} and stringified JSON.
+function normalizeFaq(val: unknown): Array<{ q: string; a: string }> | null {
+  if (val == null) return null;
+  let arr: unknown = val;
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    try {
+      arr = JSON.parse(trimmed);
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(arr)) return null;
+  const cleaned = arr
+    .map((item: any) => ({
+      q: String(item?.q ?? item?.question ?? "").trim(),
+      a: String(item?.a ?? item?.answer ?? "").trim(),
+    }))
+    .filter((item) => item.q && item.a);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 // Convert form payload to Supabase column names (snake_case).
 function buildPayload(body: any) {
   // Fallback for titre fields in case they're NOT NULL.
   const titre_fr = body.titre_fr?.trim() || body.titre_ar?.trim() || body.slug || "Article";
   const titre_ar = body.titre_ar?.trim() || body.titre_fr?.trim() || body.slug || "مقال";
+
+  // String helper — empty string becomes null.
+  const strOrNull = (v: unknown): string | null => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    return s ? s : null;
+  };
+
+  // Tags helper — accept array or comma-separated string.
+  const normalizeTags = (v: unknown): string[] | null => {
+    if (v == null) return null;
+    if (Array.isArray(v)) {
+      const arr = v.map((s) => String(s).trim()).filter(Boolean);
+      return arr.length > 0 ? arr : null;
+    }
+    if (typeof v === "string") {
+      const arr = v.split(",").map((s) => s.trim()).filter(Boolean);
+      return arr.length > 0 ? arr : null;
+    }
+    return null;
+  };
+
+  const faqFr = normalizeFaq(body.faq_fr);
+  const faqAr = normalizeFaq(body.faq_ar) || faqFr;
+
   return {
     slug: body.slug ?? "",
     titre_fr,
     titre_ar,
     contenu_fr: body.contenu_fr ?? "",
     contenu_ar: body.contenu_ar ?? "",
+    // Rich content fields (added 2026-07-29 for SEO/IA).
+    excerpt_fr: strOrNull(body.excerpt_fr),
+    excerpt_ar: strOrNull(body.excerpt_ar),
+    meta_description_fr: strOrNull(body.meta_description_fr),
+    meta_description_ar: strOrNull(body.meta_description_ar),
+    faq_fr: faqFr,
+    faq_ar: faqAr,
+    category: strOrNull(body.category),
+    tags: normalizeTags(body.tags),
+    // Original fields below — unchanged.
     image_url: body.image_url ?? null,
     publie: body.publie !== false,
     auteur: body.auteur ?? "Equipe ODG",

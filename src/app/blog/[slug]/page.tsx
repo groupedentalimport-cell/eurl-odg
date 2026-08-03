@@ -28,6 +28,10 @@ export const revalidate = 3600;
 
 function mapRowToPost(row: any): BlogPost | null {
   if (!row) return null;
+  // Prefer the admin-curated excerpt_fr/ar field if available.
+  // Fall back to auto-extracting the first 200 chars of the content (HTML stripped).
+  const autoExcerptFr = (String(row.contenu_fr || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "").slice(0, 200);
+  const autoExcerptAr = (String(row.contenu_ar || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "").slice(0, 200);
   return {
     id: String(row.id || ""),
     slug: String(row.slug || ""),
@@ -36,8 +40,8 @@ function mapRowToPost(row: any): BlogPost | null {
       ar: String(row.titre_ar || row.titre_fr || row.slug || ""),
     },
     excerpt: {
-      fr: (String(row.contenu_fr || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "").slice(0, 200),
-      ar: (String(row.contenu_ar || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "").slice(0, 200),
+      fr: String(row.excerpt_fr || "").trim() || autoExcerptFr,
+      ar: String(row.excerpt_ar || "").trim() || autoExcerptAr,
     },
     content: {
       fr: String(row.contenu_fr || ""),
@@ -62,7 +66,7 @@ export default async function BlogPostRoute({ params }: Params) {
     const { data } = await client
       .from("blog_posts")
       .select(
-        "id, slug, titre_fr, titre_ar, contenu_fr, contenu_ar, image_url, auteur, publie, created_at, updated_at"
+        "id, slug, titre_fr, titre_ar, contenu_fr, contenu_ar, excerpt_fr, excerpt_ar, image_url, auteur, publie, created_at, updated_at"
       )
       .eq("slug", slug)
       .eq("publie", true)
