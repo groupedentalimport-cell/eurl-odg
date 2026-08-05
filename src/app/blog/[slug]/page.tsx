@@ -63,7 +63,9 @@ export default async function BlogPostRoute({ params }: Params) {
 
   try {
     const client = getServerClient();
-    const { data } = await client
+    // Try the full query first (with new excerpt_fr/ar columns).
+    // If the migration hasn't been applied yet, fallback to basic query.
+    const fullResult = await client
       .from("blog_posts")
       .select(
         "id, slug, titre_fr, titre_ar, contenu_fr, contenu_ar, excerpt_fr, excerpt_ar, image_url, auteur, publie, created_at, updated_at"
@@ -71,7 +73,27 @@ export default async function BlogPostRoute({ params }: Params) {
       .eq("slug", slug)
       .eq("publie", true)
       .maybeSingle();
-    post = mapRowToPost(data);
+
+    let data: any = fullResult.data;
+    let error: any = fullResult.error;
+
+    if (error && (error.code === "42703" || /column .* does not exist/i.test(error.message || ""))) {
+      // Migration not applied — fallback to basic query.
+      const basicResult = await client
+        .from("blog_posts")
+        .select(
+          "id, slug, titre_fr, titre_ar, contenu_fr, contenu_ar, image_url, auteur, publie, created_at, updated_at"
+        )
+        .eq("slug", slug)
+        .eq("publie", true)
+        .maybeSingle();
+      data = basicResult.data;
+      error = basicResult.error;
+    }
+
+    if (!error) {
+      post = mapRowToPost(data);
+    }
   } catch {
     // Supabase not configured (dev) — fall through to client-side fetch.
   }

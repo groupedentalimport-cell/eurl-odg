@@ -33,16 +33,30 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
   try {
     const client = getServerClient();
-    // Fetch meta_description_fr, excerpt_fr, contenu_fr in addition to the
-    // basic fields so we can build a proper <meta description> tag.
-    // Fallback chain: meta_description_fr → excerpt_fr → stripped contenu_fr
-    // (first 155 chars) → generic FALLBACK.
-    const { data, error } = await client
+    // Try the full query first (with new rich-content columns).
+    // If the migration hasn't been applied yet (columns don't exist),
+    // Supabase returns error code 42703 and we retry with a basic query.
+    const fullResult = await client
       .from("blog_posts")
       .select("slug, titre_fr, auteur, publie, meta_description_fr, excerpt_fr, contenu_fr")
       .eq("slug", slug)
       .eq("publie", true)
       .maybeSingle();
+
+    let data: any = fullResult.data;
+    let error: any = fullResult.error;
+
+    if (error && (error.code === "42703" || /column .* does not exist/i.test(error.message || ""))) {
+      // Migration not applied yet — fallback to basic query.
+      const basicResult = await client
+        .from("blog_posts")
+        .select("slug, titre_fr, auteur, publie, contenu_fr")
+        .eq("slug", slug)
+        .eq("publie", true)
+        .maybeSingle();
+      data = basicResult.data;
+      error = basicResult.error;
+    }
 
     if (!error && data) {
       titreFr = String(data.titre_fr || "").trim();
@@ -175,7 +189,8 @@ async function buildArticleJsonLd(slug: string) {
 
   try {
     const client = getServerClient();
-    const { data } = await client
+    // Try the full query first (with new rich-content columns).
+    const fullResult = await client
       .from("blog_posts")
       .select(
         "slug, titre_fr, contenu_fr, excerpt_fr, image_url, auteur, publie, created_at, updated_at, faq_fr"
@@ -183,7 +198,25 @@ async function buildArticleJsonLd(slug: string) {
       .eq("slug", slug)
       .eq("publie", true)
       .maybeSingle();
-    if (data) {
+
+    let data: any = fullResult.data;
+    let error: any = fullResult.error;
+
+    if (error && (error.code === "42703" || /column .* does not exist/i.test(error.message || ""))) {
+      // Migration not applied yet — fallback to basic query.
+      const basicResult = await client
+        .from("blog_posts")
+        .select(
+          "slug, titre_fr, contenu_fr, image_url, auteur, publie, created_at, updated_at"
+        )
+        .eq("slug", slug)
+        .eq("publie", true)
+        .maybeSingle();
+      data = basicResult.data;
+      error = basicResult.error;
+    }
+
+    if (!error && data) {
       titreFr = String(data.titre_fr || "").trim();
       auteur = String(data.auteur || auteur).trim();
       contenuFr = String(data.contenu_fr || "");
@@ -191,8 +224,10 @@ async function buildArticleJsonLd(slug: string) {
       imageUrl = String(data.image_url || "");
       datePublished = data.created_at || "";
       dateModified = data.updated_at || datePublished;
-      // Parse explicit FAQ from DB (JSONB column).
-      explicitFaqs = parseFaqField(data.faq_fr);
+      // Parse explicit FAQ from DB (JSONB column) — only if faq_fr exists.
+      if (data.faq_fr !== undefined) {
+        explicitFaqs = parseFaqField(data.faq_fr);
+      }
     }
   } catch {
     // ignore — return null graph
