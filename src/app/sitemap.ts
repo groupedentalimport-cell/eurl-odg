@@ -54,6 +54,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
+      url: `${SITE_URL}/villes`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
       url: `${SITE_URL}/faq`,
       lastModified: now,
       changeFrequency: "monthly",
@@ -158,6 +164,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch {
     // Defensive — should never fail since brands-data.ts has no deps.
+  }
+
+  // --- Static: city pages (/villes/<slug>) -----------------------------
+  // The 15 cities are defined in src/lib/cities-data.ts and don't depend
+  // on Supabase — they're always available.
+  try {
+    const { CITIES } = await import("@/lib/cities-data");
+    for (const slug of Object.keys(CITIES)) {
+      entries.push({
+        url: `${SITE_URL}/villes/${slug}`,
+        lastModified: now,
+        changeFrequency: "monthly",
+        priority: 0.8,
+      });
+    }
+  } catch {
+    // Defensive — should never fail since cities-data.ts has no deps.
   }
 
   // --- Dynamic: blog post slugs (/blog/<slug>) -------------------------

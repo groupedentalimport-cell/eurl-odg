@@ -4,6 +4,7 @@ import { useCompanyInfo, useSettings } from "@/lib/settings-service";
 import { useTranslation } from "@/lib/i18n";
 import { useData } from "@/lib/data-service";
 import { navigate } from "@/lib/router";
+import { CITIES } from "@/lib/cities-data";
 
 export function Footer() {
   const { t, lang } = useTranslation();
@@ -88,6 +89,24 @@ export function Footer() {
                 <span>{COMPANY.hours[lang]}</span>
               </li>
             </ul>
+          </div>
+        </div>
+
+        {/* Villes desservies — SEO local internal linking */}
+        <div className="mt-8 border-t border-slate-700 pt-6">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Villes desservies
+          </h3>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
+            {Object.values(CITIES).map((city) => (
+              <button
+                key={city.slug}
+                onClick={() => navigate("villes/" + city.slug)}
+                className="hover:text-brand-400 hover:underline"
+              >
+                {city.name}
+              </button>
+            ))}
           </div>
         </div>
 
