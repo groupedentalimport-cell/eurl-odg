@@ -101,7 +101,7 @@ function mapProduct(row: any): Product {
     garantie: row.garantie_fr || row.garantie_ar
       ? { fr: row.garantie_fr || "", ar: row.garantie_ar || row.garantie_fr || "" }
       : undefined,
-    faq: faqFr ? { fr: faqFr, ar: faqAr } : undefined,
+    faq: faqFr ? { fr: faqFr, ar: faqAr || faqFr } : undefined,
     prixMin: row.prix_min ?? null,
     prixMax: row.prix_max ?? null,
     ratingValue: row.rating_value ?? null,

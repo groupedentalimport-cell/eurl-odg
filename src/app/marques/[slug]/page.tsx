@@ -88,7 +88,7 @@ function mapRowToProduct(row: any): Product {
             ar: String(row.description_longue_ar || row.description_longue_fr || ""),
           }
         : undefined,
-    faq: faqFr ? { fr: faqFr, ar: faqAr } : undefined,
+    faq: faqFr ? { fr: faqFr, ar: faqAr || faqFr } : undefined,
     prixMin: row.prix_min ?? null,
     prixMax: row.prix_max ?? null,
     ratingValue: row.rating_value ?? null,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase";
+import { serverEnv } from "@/lib/env";
 import {
   sendRappelInterventionEmail,
   sendRappelMaintenanceEmail,
@@ -547,19 +548,13 @@ export async function POST(req: NextRequest) {
 
 async function handle(req: NextRequest): Promise<NextResponse> {
   // ---- Auth: secret query param ----
+  // serverEnv throws at first access when CRON_SECRET is missing in
+  // production (fail-closed), instead of silently running unprotected.
   const url = new URL(req.url);
   const providedKey = url.searchParams.get("key");
-  const expectedKey = process.env.CRON_SECRET;
+  const expectedKey = serverEnv.CRON_SECRET;
 
-  if (!expectedKey) {
-    // Dev mode: CRON_SECRET not configured. The task spec says "allow
-    // but log a warning" so a developer can hit the endpoint locally
-    // without setting up the secret. In production this would be a
-    // misconfiguration — the warning makes the gap visible.
-    console.warn(
-      "[cron/reminders] CRON_SECRET env var is not set — running unprotected (dev mode). Set CRON_SECRET in production."
-    );
-  } else if (!providedKey || providedKey !== expectedKey) {
+  if (!providedKey || providedKey !== expectedKey) {
     return NextResponse.json(
       { ok: false, error: "Unauthorized — invalid or missing key." },
       { status: 401 }

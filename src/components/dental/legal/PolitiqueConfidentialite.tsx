@@ -414,7 +414,7 @@ export function PolitiqueConfidentialite() {
               className="mb-6 flex flex-wrap items-center gap-1 text-xs text-brand-100"
             >
               <button
-                onClick={() => navigate("home")}
+                onClick={() => navigate("")}
                 className="hover:text-white hover:underline"
               >
                 {t("legalBreadcrumbHome")}
@@ -481,7 +481,7 @@ export function PolitiqueConfidentialite() {
           {/* Back to home */}
           <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-6">
             <button
-              onClick={() => navigate("home")}
+              onClick={() => navigate("")}
               className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 hover:underline"
             >
               <ArrowLeft className="h-4 w-4 rtl:rotate-180" aria-hidden />
