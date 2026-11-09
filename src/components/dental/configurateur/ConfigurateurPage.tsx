@@ -11,13 +11,9 @@
 //   Step 4 — Récapitulatif (summary with estimated price range + 2 CTAs)
 //
 // Pricing policy:
-//   ODG does NOT publish public prices, so every amount shown here is a
-//   HARDCODED indicative range per category. The label is clearly
-//   "Estimation — prix final sur devis".
-//     - Fauteuil: 800 000 – 1 500 000 DZD
-//     - Autoclave: 300 000 – 600 000 DZD
-//     - Radio:    400 000 – 1 200 000 DZD
-//   The total range = (sum of mins) – (sum of maxs) for selected items.
+//   ODG does NOT publish public prices. No amount is displayed anywhere
+//   in the configurator: every price block shows "Sur devis" (i18n key
+//   configOnRequest) and the final price is communicated on the quote.
 //
 // CTAs on the summary step:
 //   1. "Demander un devis détaillé" → push all selected products into the
@@ -57,30 +53,6 @@ import { useCompare } from "@/hooks/useCompare";
 import { navigate } from "@/lib/router";
 import { toast } from "@/components/ui/sonner";
 import type { Product } from "@/lib/types";
-
-// ------------------------------------------------------------
-// Hardcoded indicative price ranges per category (DZD).
-// These are PLACEHOLDERS — ODG never publishes public prices.
-// ------------------------------------------------------------
-interface PriceRange {
-  min: number;
-  max: number;
-}
-
-const CATEGORY_RANGES: Record<string, PriceRange> = {
-  "fauteuil-dentaire": { min: 800_000, max: 1_500_000 },
-  sterilisation: { min: 300_000, max: 600_000 },
-  radiologie: { min: 400_000, max: 1_200_000 },
-};
-
-function formatDZD(n: number): string {
-  if (!isFinite(n)) return "—";
-  return new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " DZD";
-}
-
-function formatRange(range: PriceRange): string {
-  return `${formatDZD(range.min)} – ${formatDZD(range.max)}`;
-}
 
 // ------------------------------------------------------------
 // Step definitions — 3 selection steps + 1 summary step.
@@ -167,20 +139,6 @@ export function ConfigurateurPage() {
       ) as Product[],
     [selections]
   );
-
-  // Compute the total estimated range from the selected products.
-  const totalRange = useMemo(() => {
-    let min = 0;
-    let max = 0;
-    for (const p of selectedList) {
-      const r = CATEGORY_RANGES[p.categorySlug];
-      if (r) {
-        min += r.min;
-        max += r.max;
-      }
-    }
-    return { min, max };
-  }, [selectedList]);
 
   // ---- Selection handlers ----
   function selectItem(stepKey: StepKey, product: Product) {
@@ -327,7 +285,6 @@ export function ConfigurateurPage() {
                   selections={selections}
                   steps={STEPS}
                   selectedCount={selectedCount}
-                  totalRange={totalRange}
                   onJump={jumpTo}
                   onReset={handleReset}
                   onRequestQuote={handleRequestQuote}
@@ -373,14 +330,12 @@ export function ConfigurateurPage() {
                       </div>
                       {currentStep && (
                         <div className="hidden shrink-0 text-end sm:block">
-                          <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                            {t("configEstimatedPrice")}
-                          </div>
-                          <div className="text-sm font-semibold text-brand-700">
-                            {formatRange(
-                              CATEGORY_RANGES[currentStep.categorySlug]
-                            )}
-                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="bg-brand-50 text-xs font-medium text-brand-700"
+                          >
+                            {t("configOnRequest")}
+                          </Badge>
                         </div>
                       )}
                     </div>
@@ -420,11 +375,6 @@ export function ConfigurateurPage() {
                               key={p.id}
                               product={p}
                               selected={selected}
-                              range={
-                                currentStep
-                                  ? CATEGORY_RANGES[currentStep.categorySlug]
-                                  : undefined
-                              }
                               onSelect={() => selectItem(currentStep!.key, p)}
                             />
                           );
@@ -578,12 +528,10 @@ function ProgressIndicator({
 function ProductOptionCard({
   product,
   selected,
-  range,
   onSelect,
 }: {
   product: Product;
   selected: boolean;
-  range?: PriceRange;
   onSelect: () => void;
 }) {
   const { t, lang } = useTranslation();
@@ -630,17 +578,12 @@ function ProductOptionCard({
           {name}
         </h3>
 
-        {/* Indicative price range */}
-        {range && (
-          <div className="mt-auto rounded-lg bg-slate-50 px-3 py-2 text-center">
-            <div className="text-[10px] uppercase tracking-wide text-slate-400">
-              {t("configEstimatedPrice")}
-            </div>
-            <div className="text-sm font-bold text-brand-700">
-              {formatRange(range)}
-            </div>
+        {/* Prix sur devis */}
+        <div className="mt-auto rounded-lg bg-slate-50 px-3 py-2 text-center">
+          <div className="text-sm font-bold text-brand-700">
+            {t("configOnRequest")}
           </div>
-        )}
+        </div>
 
         {/* Selection status pill */}
         <div
@@ -665,7 +608,7 @@ function ProductOptionCard({
 }
 
 // ============================================================
-// Summary receipt — the 3 selected products + estimated total range
+// Summary receipt — the 3 selected products + "Sur devis" total
 // + 2 CTAs ("Demander un devis détaillé" + "Comparer ces produits").
 // Styled like a paper receipt: monospace numerals, dashed separator.
 // ============================================================
@@ -673,7 +616,6 @@ function SummaryReceipt({
   selections,
   steps,
   selectedCount,
-  totalRange,
   onJump,
   onReset,
   onRequestQuote,
@@ -682,7 +624,6 @@ function SummaryReceipt({
   selections: Selections;
   steps: StepDef[];
   selectedCount: number;
-  totalRange: PriceRange;
   onJump: (id: StepId) => void;
   onReset: () => void;
   onRequestQuote: () => void;
@@ -782,16 +723,14 @@ function SummaryReceipt({
                 )}
               </div>
 
-              {/* Estimated range */}
+              {/* Prix communiqué sur devis */}
               <div className="hidden shrink-0 text-end sm:block">
-                <div className="text-[10px] uppercase tracking-wide text-slate-400">
-                  {t("configEstimatedPrice")}
-                </div>
-                <div className="text-sm font-semibold text-slate-700 tabular-nums">
-                  {product
-                    ? formatRange(CATEGORY_RANGES[step.categorySlug])
-                    : "—"}
-                </div>
+                <Badge
+                  variant="secondary"
+                  className="bg-brand-50 text-[10px] font-medium text-brand-700"
+                >
+                  {t("configOnRequest")}
+                </Badge>
               </div>
 
               {/* Edit link */}
@@ -807,15 +746,15 @@ function SummaryReceipt({
           ))}
         </ul>
 
-        {/* Total range */}
+        {/* Total — sur devis */}
         <div className="border-t-2 border-dashed border-slate-300 bg-slate-50 px-6 py-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="text-xs uppercase tracking-wide text-slate-500">
-                {t("configTotalRange")}
+                {t("configTotal")}
               </div>
-              <div className="text-2xl font-extrabold text-brand-700 tabular-nums sm:text-3xl">
-                {formatRange(totalRange)}
+              <div className="text-2xl font-extrabold text-brand-700 sm:text-3xl">
+                {t("configOnRequest")}
               </div>
             </div>
             <div className="text-end">

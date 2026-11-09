@@ -61,33 +61,8 @@ export function buildProductJsonLd(product: Product) {
       ...(product.audience && product.audience.length
         ? { audience: { "@type": "Audience", audienceType: product.audience.join(", ") } }
         : {}),
-      ...(product.prixMin || product.prixMax
-        ? {
-            offers: {
-              "@type": "Offer",
-              url: productUrl,
-              priceCurrency: "DZD",
-              ...(product.prixMin ? { price: String(product.prixMin) } : {}),
-              ...(product.prixMin && product.prixMax
-                ? { maxPrice: String(product.prixMax), priceSpecification: {
-                    "@type": "PriceSpecification",
-                    minPrice: product.prixMin,
-                    maxPrice: product.prixMax,
-                    priceCurrency: "DZD",
-                  } }
-                : {}),
-              availability: product.available
-                ? "https://schema.org/InStock"
-                : "https://schema.org/OutOfStock",
-              seller: { "@id": SITE_URL + "/#organization" },
-              areaServed: {
-                "@type": "Country",
-                name: "Algérie",
-                alternateName: "Algeria",
-              },
-            },
-          }
-        : {}),
+      // Pricing policy: ODG does not publish public prices — no Offer is
+      // exposed in structured data (price comes only via the quote).
       ...(product.ratingValue && product.ratingCount
         ? {
             aggregateRating: {

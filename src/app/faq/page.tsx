@@ -62,7 +62,7 @@ const FAQ_SECTIONS: { category: string; items: QA[] }[] = [
       },
       {
         q: "Quel budget pour un fauteuil dentaire en Algérie ?",
-        a: "Le budget d'un fauteuil dentaire en Algérie varie selon les options : un fauteuil basique démarre autour de 350 000 DZD, un fauteuil classique équipé entre 500 000 et 800 000 DZD, et un fauteuil haut de gamme avec implantologie dépasse 1 200 000 DZD. OUADAH DENTAL GROUPE propose des solutions de financement et des devis personnalisés selon votre cabinet et votre wilaya.",
+        a: "Le budget d'un fauteuil dentaire en Algérie varie fortement selon la configuration : modèle basique, fauteuil classique équipé, ou version haut de gamme dédiée à l'implantologie. OUADAH DENTAL GROUPE ne pratique pas de prix affichés : chaque équipement est proposé sur devis, avec des solutions de financement et une proposition personnalisée selon votre cabinet et votre wilaya.",
       },
     ],
   },
@@ -83,7 +83,7 @@ const FAQ_SECTIONS: { category: string; items: QA[] }[] = [
       },
       {
         q: "Prix d'un autoclave dentaire en Algérie ?",
-        a: "Le prix d'un autoclave dentaire classe B en Algérie varie selon la contenance : un 18 L démarre autour de 280 000 DZD, un 23 L autour de 350 000 DZD, et un 45 L dépasse 600 000 DZD. Les marques ICANCLAVE distribuées par ODG incluent la formation, l'installation et un an de garantie. Demandez un devis pour comparer les options selon votre cabinet.",
+        a: "Le prix d'un autoclave dentaire classe B en Algérie varie selon la contenance (18 L, 23 L, 45 L) et les options de cycles. Aucun prix n'est affiché en ligne : les autoclaves ICANCLAVE distribués par ODG sont proposés sur devis, avec la formation, l'installation et un an de garantie inclus. Demandez votre devis pour comparer les options selon votre cabinet.",
       },
     ],
   },
@@ -134,7 +134,7 @@ const FAQ_SECTIONS: { category: string; items: QA[] }[] = [
       },
       {
         q: "Proposez-vous du financement matériel dentaire ?",
-        a: "Oui, nous proposons des solutions de financement pour les cabinets et cliniques dentaires en Algérie : paiement échelonné sur 3 à 12 mois sans frais pour les équipements inférieurs à 1 000 000 DZD, et partenariats avec des institutions financières pour les projets d'équipement complet (cabinet neuf, extension de clinique). Contactez-nous pour étudier votre projet.",
+        a: "Oui, nous proposons des solutions de financement pour les cabinets et cliniques dentaires en Algérie : paiement échelonné sur 3 à 12 mois sans frais pour les équipements éligibles, et partenariats avec des institutions financières pour les projets d'équipement complet (cabinet neuf, extension de clinique). Contactez-nous pour étudier votre projet.",
       },
     ],
   },

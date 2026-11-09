@@ -864,8 +864,8 @@ export const T = {
   // === Cabinet configurator (Task BONUS-1) ===
   configuratorTitle: { fr: "Configurateur de cabinet dentaire", ar: "مكوّن عيادة الأسنان" },
   configuratorSubtitle: {
-    fr: "Composez votre équipement : fauteuil, stérilisation et radiologie. Obtenez une estimation immédiate de votre investissement.",
-    ar: "ركّب معداتك: كرسي، تعقيم وأشعة. احصل على تقدير فوري لاستثمارك."
+    fr: "Composez votre équipement : fauteuil, stérilisation et radiologie. Recevez un devis détaillé adapté à votre cabinet.",
+    ar: "ركّب معداتك: كرسي، تعقيم وأشعة. احصل على عرض سعر مفصّل يناسب عيادتك."
   },
   configuratorNav: { fr: "Configurateur", ar: "المكوّن" },
   configStep1: { fr: "Fauteuil dentaire", ar: "كرسي الأسنان" },
@@ -876,7 +876,7 @@ export const T = {
   configStep3Hint: { fr: "Choisissez votre système de radiologie OWANDY", ar: "اختر نظام الأشعة OWANDY" },
   configNone: { fr: "Aucun", ar: "بدون" },
   configNoneDesc: { fr: "Passer cette étape", ar: "تجاوز هذه الخطوة" },
-  configEstimatedPrice: { fr: "Prix indicatif (DZD)", ar: "سعر تقديري (ديج)" },
+  configEstimatedPrice: { fr: "Sur devis", ar: "حسب الطلب" },
   configSummary: { fr: "Récapitulatif", ar: "الملخص" },
   configTotal: { fr: "Sous-total HT", ar: "المجموع الفرعي" },
   configTVA: { fr: "TVA (19%)", ar: "الضريبة (19%)" },
@@ -884,8 +884,8 @@ export const T = {
   configRequestQuote: { fr: "Demander un devis détaillé", ar: "طلب عرض سعر مفصّل" },
   configReset: { fr: "Recommencer", ar: "إعادة البدء" },
   configDisclaimer: {
-    fr: "Prix indicatifs donnés à titre d'estimation. Le devis définitif vous sera communiqué sur demande par notre équipe commerciale.",
-    ar: "أسعار تقديرية للاستئناس فقط. سيتم إرسال عرض السعر النهائي عند الطلب من طرف فريقنا التجاري."
+    fr: "Aucun prix n'est affiché en ligne : chaque équipement est proposé sur devis. Notre équipe commerciale vous communique le prix final sur simple demande.",
+    ar: "لا يتم عرض أي سعر عبر الإنترنت: كل معدات تُعرض حسب الطلب. يبلغ فريقنا التجاري السعر النهائي عند الطلب."
   },
   configSelectItem: { fr: "Sélectionner", ar: "اختيار" },
   configItemSelected: { fr: "Sélectionné", ar: "مُختار" },
@@ -899,14 +899,14 @@ export const T = {
   configAddedToQuote: { fr: "Équipements ajoutés à votre demande de devis", ar: "تمت إضافة المعدات إلى طلب العرض" },
   configHomeSectionTitle: { fr: "Composez votre cabinet", ar: "ركّب عيادتك" },
   configHomeSectionDesc: {
-    fr: "Sélectionnez votre fauteuil, autoclave et radio, et obtenez une estimation immédiate de votre investissement.",
-    ar: "اختر كرسيك وأوتوكلافك وجهاز الأشعة، واحصل على تقدير فوري لاستثمارك."
+    fr: "Sélectionnez votre fauteuil, autoclave et radio, et recevez un devis détaillé adapté à votre cabinet.",
+    ar: "اختر كرسيك وأوتوكلافك وجهاز الأشعة، واحصل على عرض سعر مفصّل يناسب عيادتك."
   },
   configHomeSectionCta: { fr: "Lancer le configurateur", ar: "ابدأ التكوين" },
   configHomeSectionBadge: { fr: "Nouveau", ar: "جديد" },
   configHomeSectionBullets: {
-    fr: "5 étapes · estimation immédiate · demande de devis",
-    ar: "5 خطوات · تقدير فوري · طلب عرض سعر"
+    fr: "3 étapes · prix sur devis · demande de devis en ligne",
+    ar: "3 خطوات · السعر حسب الطلب · طلب عرض سعر إلكتروني"
   },
   // === BONUS-1 v2: 5-step configurator with accessories + prices from specs ===
   configStep4: { fr: "Accessoires", ar: "ملحقات" },
@@ -1061,22 +1061,18 @@ export const T = {
   portalStatutEnPrep: { fr: "En préparation", ar: "قيد التحضير" },
   portalStatutLivree: { fr: "Livrée", ar: "تم التسليم" },
   portalStatutAnnulee: { fr: "Annulée", ar: "ملغاة" },
-  // === Task BONUS-1 v3: simplified 3-step configurateur with hardcoded price ranges ===
+  // === Task BONUS-1 v3: simplified 3-step configurateur — prices on quote only ===
   configurateurTitle: {
     fr: "Configurateur de cabinet",
     ar: "مكوّن عيادة الأسنان",
   },
   configurateurSubtitle: {
-    fr: "Composez votre cabinet dentaire en 3 étapes : fauteuil, stérilisation et radiologie. Obtenez une estimation immédiate de votre investissement.",
-    ar: "ركّب عيادة الأسنان في 3 خطوات: كرسي، تعقيم وأشعة. احصل على تقدير فوري لاستثمارك.",
+    fr: "Composez votre cabinet dentaire en 3 étapes : fauteuil, stérilisation et radiologie. Recevez un devis détaillé adapté à votre projet.",
+    ar: "ركّب عيادة الأسنان في 3 خطوات: كرسي، تعقيم وأشعة. احصل على عرض سعر مفصّل يناسب مشروعك.",
   },
   configSelect: { fr: "Sélectionner", ar: "اختيار" },
   configSelected: { fr: "Sélectionné", ar: "مُختار" },
   configSkip: { fr: "Passer cette étape", ar: "تجاوز هذه الخطوة" },
-  configTotalRange: {
-    fr: "Fourchette totale estimée",
-    ar: "النطاق الإجمالي المقدّر",
-  },
   configCompare: { fr: "Comparer ces produits", ar: "مقارنة هذه المنتجات" },
   configNoProducts: {
     fr: "Aucun produit disponible dans cette catégorie pour le moment.",

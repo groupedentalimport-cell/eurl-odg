@@ -200,15 +200,6 @@ export function ProductPage({
   const showFaq = Boolean(product.faq?.fr && product.faq.fr.length > 0);
   const showSpecs = product.specs.length > 0;
 
-  const priceLabel = (() => {
-    if (!product.prixMin && !product.prixMax) return null;
-    const fmt = (n: number) => new Intl.NumberFormat("fr-DZ").format(n) + " DZD";
-    if (product.prixMin && product.prixMax && product.prixMin !== product.prixMax) {
-      return fmt(product.prixMin) + " – " + fmt(product.prixMax);
-    }
-    return fmt(product.prixMin || product.prixMax || 0);
-  })();
-
   return (
     <div className="bg-slate-50">
       {/* Breadcrumb */}
@@ -274,7 +265,6 @@ export function ProductPage({
             Garantie : {product.garantie.fr.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}
           </p>
         )}
-        {priceLabel && <p>Prix indicatif : {priceLabel}</p>}
         {product.faq?.fr && product.faq.fr.length > 0 && (
           <div>
             <h2>Questions fréquentes</h2>
@@ -401,17 +391,14 @@ export function ProductPage({
               </button>
             )}
 
-            {/* Rating + Price */}
+            {/* Rating + Prix sur devis */}
             <div className="mt-3 flex flex-wrap items-center gap-4">
               {product.ratingValue && product.ratingCount && (
                 <Stars value={product.ratingValue} count={product.ratingCount} />
               )}
-              {priceLabel && (
-                <div className="flex items-baseline gap-1">
-                  <span className="text-sm text-slate-500">à partir de</span>
-                  <span className="text-xl font-bold text-slate-900">{priceLabel}</span>
-                </div>
-              )}
+              <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">
+                {t("configOnRequest")}
+              </span>
             </div>
 
             {/* "En bref" — TL;DR extractible par IA */}

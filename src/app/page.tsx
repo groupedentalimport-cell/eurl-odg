@@ -113,7 +113,7 @@ export default function Home() {
           Mostaganem, Mascara, Relizane, Aïn Témouchent), garantie 2 ans pièces
           et main-d'œuvre sur fauteuils, autoclaves et radiologie (1 an sur
           scanners), financement échelonné 3 à 12 mois sans frais pour les
-          équipements jusqu'à 1 000 000 DZD.
+          équipements éligibles. Tous les équipements sont proposés sur devis.
         </p>
         <p>
           ODG sert les chirurgiens-dentistes libéraux, les cliniques dentaires,

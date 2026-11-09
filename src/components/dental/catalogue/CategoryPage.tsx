@@ -16,13 +16,8 @@ interface CategoryInfo {
   description?: { fr?: string; ar?: string };
 }
 
-// Format price in DZD using fr-DZ locale.
-function formatPrice(min?: number | null, max?: number | null): string | null {
-  if (!min && !max) return null;
-  const fmt = (n: number) => new Intl.NumberFormat("fr-DZ").format(n) + " DZD";
-  if (min && max && min !== max) return fmt(min) + " – " + fmt(max);
-  return fmt(min || max || 0);
-}
+// (Public pricing policy: no prices are displayed on the site —
+//  every product shows "Sur devis". Price fields are never rendered.)
 
 export function CategoryPage({
   category,
@@ -33,7 +28,7 @@ export function CategoryPage({
 }) {
   const { t, lang } = useTranslation();
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<"default" | "price-asc" | "price-desc" | "rating">("default");
+  const [sort, setSort] = useState<"default" | "rating">("default");
 
   const products = initialProducts || [];
 
@@ -48,11 +43,7 @@ export function CategoryPage({
         return hay.includes(q);
       });
     }
-    if (sort === "price-asc") {
-      list = [...list].sort((a, b) => (a.prixMin || 0) - (b.prixMin || 0));
-    } else if (sort === "price-desc") {
-      list = [...list].sort((a, b) => (b.prixMin || 0) - (a.prixMin || 0));
-    } else if (sort === "rating") {
+    if (sort === "rating") {
       list = [...list].sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
     }
     return list;
@@ -66,14 +57,10 @@ export function CategoryPage({
   const stats = useMemo(() => {
     const featuredCount = products.filter((p) => p.featured).length;
     const brands = Array.from(new Set(products.map((p) => p.brand).filter(Boolean)));
-    const priceMin = Math.min(...products.map((p) => p.prixMin || Infinity).filter((n) => n !== Infinity));
-    const priceMax = Math.max(...products.map((p) => p.prixMax || 0).filter((n) => n > 0));
     return {
       total: products.length,
       featured: featuredCount,
       brands,
-      priceMin: priceMin !== Infinity ? priceMin : null,
-      priceMax: priceMax > 0 ? priceMax : null,
     };
   }, [products]);
 
@@ -128,14 +115,9 @@ export function CategoryPage({
                   ))}
                 </div>
               )}
-              {stats.priceMin && (
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold text-slate-700">À partir de</span>
-                  <span className="text-brand-700 font-bold">
-                    {formatPrice(stats.priceMin, stats.priceMax)}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-brand-700">{t("configOnRequest")}</span>
+              </div>
             </div>
           )}
         </motion.div>
@@ -164,8 +146,6 @@ export function CategoryPage({
                 className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm"
               >
                 <option value="default">Pertinence</option>
-                <option value="price-asc">Prix croissant</option>
-                <option value="price-desc">Prix décroissant</option>
                 <option value="rating">Mieux notés</option>
               </select>
             </div>
@@ -220,21 +200,14 @@ export function CategoryPage({
           {stats.brands.length > 0 && (
             <p>Marques représentées : {stats.brands.join(", ")}.</p>
           )}
-          {stats.priceMin && (
-            <p>
-              Fourchette de prix : {formatPrice(stats.priceMin, stats.priceMax)}.
-            </p>
-          )}
+          <p>Tous les équipements de cette catégorie sont proposés sur devis.</p>
           {products.length > 0 && (
             <div>
               <h3>Produits de cette catégorie</h3>
               <ul>
                 {products.map((p) => (
                   <li key={p.id}>
-                    {p.name.fr} — {p.brand} {p.model}.{" "}
-                    {p.prixMin
-                      ? "Prix à partir de " + formatPrice(p.prixMin, p.prixMax) + "."
-                      : ""}
+                    {p.name.fr} — {p.brand} {p.model}. Disponible sur devis.
                     {p.ratingValue
                       ? " Note " + p.ratingValue.toFixed(1) + "/5 (" + p.ratingCount + " avis)."
                       : ""}

@@ -148,18 +148,8 @@ function buildAmortization(
 }
 
 // ------------------------------------------------------------
-// Product price estimates (mirrors the configurateur).
-// Hardcoded midpoints per category slug, in DZD.
-// fauteuil 800k–1.5M, autoclave 300k–600k, radio 400k–1.2M.
-// ------------------------------------------------------------
-const PRICE_ESTIMATES_DZD: Record<string, number> = {
-  "fauteuil-dentaire": 1_150_000, // midpoint of 800k–1.5M
-  "unit-dentaire": 1_150_000,
-  sterilisation: 450_000, // midpoint of 300k–600k
-  radiologie: 800_000, // midpoint of 400k–1.2M
-  consommables: 100_000,
-};
-
+// Pricing policy: no indicative price table — the simulator is fed
+// by the amount the visitor enters (final price comes via the quote).
 // ------------------------------------------------------------
 // Term options (months). 12 / 24 / 36 / 48 / 60.
 // ------------------------------------------------------------
@@ -354,19 +344,11 @@ export function FinancementPage() {
   }, [price, downPct, rate, term, mode]);
 
   // ----------------------------------------
-  // Product prefill — when a product is selected, set the price
-  // to the category midpoint estimate.
+  // Product selection — no price prefill: the visitor enters the
+  // equipment amount (final price is communicated on the quote).
   // ----------------------------------------
   function onProductChange(value: string) {
-    if (value === NO_PRODUCT_VALUE) {
-      setSelectedProductSlug("");
-      return;
-    }
-    setSelectedProductSlug(value);
-    const product = products.find((p) => p.slug === value);
-    if (!product) return;
-    const est = PRICE_ESTIMATES_DZD[product.categorySlug];
-    if (est) setPrice(est);
+    setSelectedProductSlug(value === NO_PRODUCT_VALUE ? "" : value);
   }
 
   // The Select's `value` prop — maps our internal "" state to the sentinel.

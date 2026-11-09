@@ -21,13 +21,6 @@ import { COMPANY } from "@/lib/types";
 import type { BrandData } from "@/lib/brands-data";
 import type { Product } from "@/lib/types";
 
-function formatPrice(min?: number | null, max?: number | null): string | null {
-  if (!min && !max) return null;
-  const fmt = (n: number) => new Intl.NumberFormat("fr-DZ").format(n) + " DZD";
-  if (min && max && min !== max) return fmt(min) + " – " + fmt(max);
-  return fmt(min || max || 0);
-}
-
 function RichContent({ html }: { html: string }) {
   return (
     <div
@@ -49,13 +42,7 @@ export function BrandPage({
   // Stats
   const stats = {
     total: products.length,
-    priceMin: Math.min(...products.map((p) => p.prixMin || Infinity).filter((n) => n !== Infinity)),
-    priceMax: Math.max(...products.map((p) => p.prixMax || 0).filter((n) => n > 0)),
   };
-  const priceRangeLabel = formatPrice(
-    stats.priceMin !== Infinity ? stats.priceMin : null,
-    stats.priceMax > 0 ? stats.priceMax : null
-  );
 
   return (
     <div className="bg-slate-50">
@@ -117,9 +104,9 @@ export function BrandPage({
                   </span>
                 </div>
               )}
-              {priceRangeLabel && (
+              {stats.total > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <span className="font-semibold">À partir de {priceRangeLabel}</span>
+                  <span className="font-semibold">{t("configOnRequest")}</span>
                 </div>
               )}
             </div>
