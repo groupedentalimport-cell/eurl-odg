@@ -77,8 +77,6 @@ export const T = {
   why2Desc: { fr: "Pièces détachées et techniciens en Algérie.", ar: "قطع غيار وفنيون في الجزائر." },
   why3Title: { fr: "Formation incluse", ar: "تكوين مشمول" },
   why3Desc: { fr: "Installation et formation à la prise en main.", ar: "التركيب والتكوين على الاستعمال." },
-  why4Title: { fr: "Garantie 24 mois", ar: "ضمان 24 شهر" },
-  why4Desc: { fr: "Tous nos produits sont garantis 2 ans.", ar: "كل منتجاتنا مضمونة سنتين." },
   // Contact form
   contactTitle: { fr: "Contactez-nous", ar: "اتصل بنا" },
   contactDesc: { fr: "Une question, un devis ? Écrivez-nous.", ar: "سؤال أو عرض سعر؟ راسلنا." },
@@ -415,7 +413,7 @@ export const T = {
   cmdNoDevis: { fr: "Aucun devis accepté disponible.", ar: "لا توجد عروض سعر مقبولة." },
   cmdMarkPreparation: { fr: "Marquer en préparation", ar: "قيد التحضير" },
   cmdMarkLivre: { fr: "Marquer livrée", ar: "تحديد كمسلّم" },
-  cmdLivreGarantie: { fr: "La garantie 24 mois sera créée automatiquement.", ar: "سيتم إنشاء ضمان 24 شهر تلقائياً." },
+  cmdLivreGarantie: { fr: "La garantie sera créée à la livraison.", ar: "سيتم إنشاء الضمان عند التسليم." },
   statutEnAttente: { fr: "En attente", ar: "قيد الانتظار" },
   statutEnPreparation: { fr: "En préparation", ar: "قيد التحضير" },
   statutLivre: { fr: "Livrée", ar: "تم التسليم" },
@@ -559,7 +557,7 @@ export const T = {
   // === Task CRM-D — Garanties / Maintenances / Dashboard ===
   // Garanties panel
   garantiesTitle: { fr: "Garanties", ar: "الضمانات" },
-  garantiesDesc: { fr: "Suivi des garanties produits (24 mois par défaut).", ar: "متابعة ضمانات المنتجات (24 شهر افتراضياً)." },
+  garantiesDesc: { fr: "Suivi des garanties produits.", ar: "متابعة ضمانات المنتجات." },
   newGarantie: { fr: "Nouvelle garantie", ar: "ضمان جديد" },
   editGarantie: { fr: "Modifier la garantie", ar: "تعديل الضمان" },
   noGaranties: { fr: "Aucune garantie enregistrée.", ar: "لا توجد ضمانات مسجلة." },

@@ -275,7 +275,7 @@ export function BrandPage({
           </p>
           <p>
             Services inclus : installation, formation, maintenance préventive et
-            curative. Garantie fabricant 2 ans (sauf indications contraires).
+            curative. Garantie fabricant (sauf indications contraires).
             Livraison dans toute l'Algérie, SAV basé à {COMPANY.city}.
           </p>
           <p>

@@ -117,7 +117,7 @@ const FAQ_SECTIONS: { category: string; items: QA[] }[] = [
       },
       {
         q: "Quelle garantie sur le matériel dentaire ?",
-        a: "Tous les équipements distribués par OUADAH DENTAL GROUPE bénéficient de la garantie fabricant : 2 ans pour les fauteuils Silver Fox, 2 ans pour les autoclaves ICANCLAVE, 2 ans pour la radiologie OWANDY, 1 an pour les scanners Launca. La garantie couvre les pièces et la main-d'œuvre. Les contrats de maintenance préventive étendent la couverture au-delà de la garantie.",
+        a: "Tous les équipements distribués par OUADAH DENTAL GROUPE bénéficient de la garantie fabricant, couvrant les pièces et la main-d'œuvre. La durée varie selon le modèle ; elle est précisée sur votre devis. Les contrats de maintenance préventive étendent la couverture au-delà de la garantie.",
       },
     ],
   },

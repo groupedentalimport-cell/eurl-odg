@@ -36,7 +36,7 @@ function buildHomeDescriptionJsonLd() {
       COMPANY.country +
       ", l'entreprise distribue les fauteuils dentaires Silver Fox, les autoclaves ICANCLAVE, " +
       "la radiologie OWANDY et les scanners intra-oraux Launca. Services inclus : installation, formation, " +
-      "maintenance préventive et curative, garantie 2 ans, financement. Livraison dans toute l'Algérie.",
+      "maintenance préventive et curative, financement. Livraison dans toute l'Algérie.",
     mainEntity: {
       "@type": "Organization",
       "@id": SITE_URL + "/#organization",
@@ -110,7 +110,7 @@ export default function Home() {
           Les services inclus sont : installation et mise en service dans toute
           l'Algérie, formation du praticien et de son assistant à chaque achat,
           maintenance préventive et curative (techniciens basés à Oran couvrant
-          Mostaganem, Mascara, Relizane, Aïn Témouchent), garantie 2 ans pièces
+          Mostaganem, Mascara, Relizane, Aïn Témouchent), garantie fabricant pièces
           et main-d'œuvre sur fauteuils, autoclaves et radiologie (1 an sur
           scanners), financement échelonné 3 à 12 mois sans frais pour les
           équipements éligibles. Tous les équipements sont proposés sur devis.

@@ -127,7 +127,7 @@ export function FaqEditor({
                 value={item.a}
                 onChange={(e) => update(idx, "a", e.target.value)}
                 rows={2}
-                placeholder="Ex: Le fauteuil est garanti 2 ans pièces et main-d'œuvre..."
+                placeholder="Ex: Le fauteuil est garanti pièces et main-d'œuvre..."
               />
             </div>
           </div>

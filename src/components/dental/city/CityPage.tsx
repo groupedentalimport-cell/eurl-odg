@@ -260,7 +260,7 @@ export function CityPage({ city }: { city: CityData }) {
                   <div>
                     <h3 className="mb-2 text-lg font-semibold text-slate-900">Garantie</h3>
                     <p className="text-sm text-slate-600">
-                      2 ans pièces et main-d'œuvre sur fauteuils, autoclaves, radiologie.
+                      Garantie fabricant pièces et main-d'œuvre sur fauteuils, autoclaves, radiologie.
                       1 an sur scanners. Extension via contrat de maintenance.
                     </p>
                   </div>
@@ -370,7 +370,7 @@ export function CityPage({ city }: { city: CityData }) {
           </p>
           <p>
             Services à {city.name} : vente, installation, formation du praticien et de son assistant,
-            maintenance préventive et curative, garantie 2 ans pièces et main-d'œuvre.
+            maintenance préventive et curative, garantie fabricant pièces et main-d'œuvre.
             Financement échelonné disponible. Devis personnalisé sous 24h ouvrées.
           </p>
           <p>

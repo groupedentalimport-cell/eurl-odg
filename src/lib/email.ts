@@ -875,12 +875,12 @@ export async function sendDevisAccepteEmail(
     ? [
         "سيتواصل معكم فريقنا التجاري لإنهاء الطلب.",
         "بعد ذلك سنخطط للتسليم و/أو التركيب حسب توفركم.",
-        "سيتم تفعيل ضمان لمدة 24 شهراً عند التسليم.",
+        "سيتم تفعيل الضمان عند التسليم.",
       ]
     : [
         "Notre équipe commerciale vous contactera pour finaliser la commande.",
         "Nous planifierons ensuite la livraison et/ou l'installation selon vos disponibilités.",
-        "Une garantie de 24 mois sera activée dès la livraison.",
+        "Une garantie sera activée dès la livraison.",
       ];
   const closing = isAr ? "شكراً لثقتكم." : "Merci de votre confiance.";
   const subject = isAr
@@ -990,10 +990,7 @@ export async function sendCommandeLivreeEmail(
 ): Promise<SendEmailResult> {
   const isAr = lang === "ar";
   const numero = commandeData.numero || "—";
-  // Garantie window: 24 months starting today.
   const today = new Date();
-  const fin = new Date(today);
-  fin.setMonth(fin.getMonth() + 24);
   const livraisonIso =
     commandeData.date_livraison_reelle || today.toISOString();
 
@@ -1011,8 +1008,8 @@ export async function sendCommandeLivreeEmail(
   const lblDateLivraison = isAr ? "تاريخ التسليم" : "Date de livraison";
   const garantieTitle = isAr ? "<strong>الضمان:</strong>" : "<strong>Garantie :</strong>";
   const garantieBody = isAr
-    ? `ضمان لمدة <strong>24 شهراً</strong> أصبح ساري المفعول على معداتكم. بدأ في <strong>${formatDateFr(today.toISOString(), lang)}</strong> وسينتهي في <strong>${formatDateFr(fin.toISOString(), lang)}</strong>.`
-    : `une garantie de <strong>24 mois</strong> est désormais active sur votre matériel. Elle a débuté le <strong>${formatDateFr(today.toISOString(), lang)}</strong> et expirera le <strong>${formatDateFr(fin.toISOString(), lang)}</strong>.`;
+    ? `معداتكم مغطاة الآن بضمان الشركة المصنّعة. الشروط والمدة الدقيقة تم إبلاغكم بها عند التسليم.`
+    : `votre matériel est désormais couvert par la garantie fabricant. Les conditions et la durée exacte vous ont été communiquées lors de la livraison.`;
   const closing = isAr
     ? "لأي مشكلة تقنية أو عيب أو سؤال حول المعدات المسلمة، لا تترددوا في الاتصال بنا — سننظم تدخلاً عند الحاجة."
     : "Pour tout problème technique, défaut ou question sur le matériel livré, n'hésitez pas à nous contacter — nous organiserons une intervention si nécessaire.";

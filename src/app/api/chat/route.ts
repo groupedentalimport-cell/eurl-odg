@@ -29,7 +29,6 @@ function buildSystemPrompt(
     `- Importateur exclusif de Silver Fox (fauteuils dentaires), ICANCLAVE (autoclaves), OWANDY (radiologie)`,
     `- Basé à ${c.city}, couvre toute l'Algérie (58 wilayas)`,
     `- Service après-vente, installation, formation inclus`,
-    `- Garantie 24 mois sur tous les produits`,
     `- Contact: ${c.phone}${c.phone2 ? ` (ou ${c.phone2})` : ""}, ${c.email}`,
     `- Adresse: ${c.address_fr}, ${c.city}, ${c.country}`,
     `- Horaires: ${c.hours_fr}`,
@@ -59,7 +58,7 @@ function cannedReply(userMessage: string, c: LiveCompanyInfo): string {
     return `Bonjour ! Je suis l'assistant ${c.name}. Nous proposons des fauteuils Silver Fox, des autoclaves ICANCLAVE et des solutions de radiologie OWANDY. Comment puis-je vous aider aujourd'hui ?`;
   }
   if (/fauteuil|chair|كرسي|كراسى|siège/.test(msg)) {
-    return "Nous proposons plusieurs fauteuils dentaires Silver Fox : classique (8000C), implant (8000C Implant), pro (8000C pro) et basique (8000B-CRS0). Tous garantis 24 mois avec installation et formation. Souhaitez-vous recevoir un devis ?";
+    return "Nous proposons plusieurs fauteuils dentaires Silver Fox : classique (8000C), implant (8000C Implant), pro (8000C pro) et basique (8000B-CRS0). Installation et formation incluses. Souhaitez-vous recevoir un devis ?";
   }
   if (/autoclave|stéril|steril|تعقيم|أوتوكلاف/.test(msg)) {
     return "Nos autoclaves ICANCLAVE classe B : 18 L (STE-18-D) pour cabinets, et 45 L (STE-45-T) pour flux importants. Conformes à la norme EN 13060. Voulez-vous un devis personnalisé ?";
@@ -77,7 +76,7 @@ function cannedReply(userMessage: string, c: LiveCompanyInfo): string {
     return "Nous livrons dans toute l'Algérie (58 wilayas). Délais habituels : 2 à 7 jours ouvrés selon la wilaya. Frais de livraison sur devis selon le produit et la destination.";
   }
   if (/garantie|warranty|ضمان/.test(msg)) {
-    return `Tous nos produits sont garantis 24 mois (pièces et main-d'œuvre). Le SAV ${c.name} assure l'installation, la formation et le suivi. Pour toute réclamation, contactez le ${c.phone}.`;
+    return `Nos produits sont couverts par la garantie fabricant (pièces et main-d'œuvre) ; la durée varie selon le modèle et est précisée sur votre devis. Le SAV ${c.name} assure l'installation, la formation et le suivi. Pour toute réclamation, contactez le ${c.phone}.`;
   }
   if (/formation|training|install|تدريب|تركيب|تثبيت/.test(msg)) {
     return "L'installation et la formation sont incluses pour tous nos fauteuils Silver Fox, autoclaves ICANCLAVE et équipements OWANDY. Nos techniciens se déplacent dans toute l'Algérie.";
