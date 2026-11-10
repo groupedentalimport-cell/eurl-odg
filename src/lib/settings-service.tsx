@@ -180,7 +180,7 @@ const DEFAULT_SETTINGS: AllSettings = {
       { title_fr: "Marques certifiées", title_ar: "علامات معتمدة", desc_fr: "Silver Fox, ICANCLAVE, OWANDY — qualité internationale.", desc_ar: "Silver Fox، ICANCLAVE، OWANDY — جودة دولية.", icon: "ShieldCheck" },
       { title_fr: "Service après-vente", title_ar: "خدمة ما بعد البيع", desc_fr: "Pièces détachées et techniciens en Algérie.", desc_ar: "قطع غيار وفنيون في الجزائر.", icon: "Wrench" },
       { title_fr: "Formation incluse", title_ar: "تكوين مشمول", desc_fr: "Installation et formation à la prise en main.", desc_ar: "التركيب والتكوين على الاستعمال.", icon: "GraduationCap" },
-      { title_fr: "Garantie 24 mois", title_ar: "ضمان 24 شهر", desc_fr: "Tous nos produits sont garantis 2 ans.", desc_ar: "كل منتجاتنا مضمونة سنتين.", icon: "BadgeCheck" },
+      { title_fr: "Garantie", title_ar: "ضمان", desc_fr: "Tous nos produits sont garantis par le fabricant.", desc_ar: "كل منتجاتنا مضمونة من الشركة المصنّعة.", icon: "BadgeCheck" },
     ],
     heroBrands: [
       { name: "Silver Fox" },
@@ -199,7 +199,7 @@ const DEFAULT_SETTINGS: AllSettings = {
       { title_fr: "Marques certifiées", title_ar: "علامات معتمدة", desc_fr: "Silver Fox, ICANCLAVE, OWANDY — qualité internationale.", desc_ar: "Silver Fox، ICANCLAVE، OWANDY — جودة دولية.", icon: "ShieldCheck" },
       { title_fr: "Service après-vente", title_ar: "خدمة ما بعد البيع", desc_fr: "Pièces détachées et techniciens en Algérie.", desc_ar: "قطع غيار وفنيون في الجزائر.", icon: "Wrench" },
       { title_fr: "Formation incluse", title_ar: "تكوين مشمول", desc_fr: "Installation et formation à la prise en main.", desc_ar: "التركيب والتكوين على الاستعمال.", icon: "GraduationCap" },
-      { title_fr: "Garantie 24 mois", title_ar: "ضمان 24 شهر", desc_fr: "Tous nos produits sont garantis 2 ans.", desc_ar: "كل منتجاتنا مضمونة سنتين.", icon: "Award" },
+      { title_fr: "Garantie", title_ar: "ضمان", desc_fr: "Tous nos produits sont garantis par le fabricant.", desc_ar: "كل منتجاتنا مضمونة من الشركة المصنّعة.", icon: "Award" },
     ],
     brands: [
       { name_fr: "Silver Fox", name_ar: "Silver Fox", desc_fr: "Fauteuils dentaires ergonomiques et fiables.", desc_ar: "كراسي أسنان مريحة وموثوقة.", emoji: "🪑", color: "from-brand-700 to-brand-900" },
