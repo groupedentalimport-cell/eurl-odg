@@ -50,7 +50,7 @@ export const FAQ_SECTIONS: FaqSection[] = [
       },
       {
         q: "Prix d'un autoclave dentaire en Algérie ?",
-        a: "Le prix d'un autoclave dentaire classe B en Algérie varie selon la contenance (18 L, 23 L, 45 L) et les options de cycles. Aucun prix n'est affiché en ligne : les autoclaves ICANCLAVE distribués par ODG sont proposés sur devis, avec la formation, l'installation et un an de garantie inclus. Demandez votre devis pour comparer les options selon votre cabinet.",
+        a: "Le prix d'un autoclave dentaire classe B en Algérie varie selon la contenance (18 L, 23 L, 45 L) et les options de cycles. Aucun prix n'est affiché en ligne : les autoclaves ICANCLAVE distribués par ODG sont proposés sur devis, avec la formation, l'installation et la garantie incluses. Demandez votre devis pour comparer les options selon votre cabinet.",
       },
     ],
   },
