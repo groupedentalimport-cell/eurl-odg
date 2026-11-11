@@ -136,12 +136,18 @@ const LLM_TIMEOUT_MS = 30_000;
 const GEMINI_GENERATE_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
+// Outcome of the last Gemini attempt — exposed only when the caller asks for
+// /api/chat?diag=1 (or body.diag=true). Never contains the API key itself.
+let geminiDiag: string = "none";
+
 async function callGeminiLLM(messages: Array<{ role: string; content: string }>): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
+    geminiDiag = "key-missing";
     console.warn("[chat] GEMINI_API_KEY not set — falling back to canned responses.");
     return null;
   }
+  geminiDiag = "requesting";
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
@@ -173,6 +179,7 @@ async function callGeminiLLM(messages: Array<{ role: string; content: string }>)
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
       console.error(`[chat] Gemini API error ${res.status}: ${errText.slice(0, 200)}`);
+      geminiDiag = `http-${res.status}: ${errText.slice(0, 180)}`;
       return null;
     }
 
@@ -188,14 +195,18 @@ async function callGeminiLLM(messages: Array<{ role: string; content: string }>)
           ? `[chat] Gemini blocked the prompt: ${block}`
           : "[chat] Gemini returned empty content"
       );
+      geminiDiag = block ? `empty-blocked:${block}` : "empty-content";
       return null;
     }
+    geminiDiag = "ok";
     return reply.trim();
   } catch (err: any) {
     if (err?.name === "AbortError") {
       console.error(`[chat] Gemini call timed out after ${LLM_TIMEOUT_MS}ms`);
+      geminiDiag = `timeout:${LLM_TIMEOUT_MS}ms`;
     } else {
       console.error("[chat] Gemini call failed:", err?.message || err);
+      geminiDiag = `fetch-error: ${String(err?.message || err).slice(0, 120)}`;
     }
     return null;
   } finally {
@@ -221,6 +232,8 @@ export async function POST(req: NextRequest) {
   }
 
   const lang: ChatLang = body?.lang === "ar" ? "ar" : "fr";
+  const diagRequested =
+    req.nextUrl.searchParams.get("diag") === "1" || body?.diag === true;
 
   // 2. Build history (last 8 messages)
   const history: Array<{ role: "user" | "assistant"; content: string }> = Array.isArray(body?.history)
@@ -257,9 +270,12 @@ export async function POST(req: NextRequest) {
     ];
 
     const reply = await callGeminiLLM(messages);
+    const diag = diagRequested
+      ? { keyConfigured: Boolean(process.env.GEMINI_API_KEY), gemini: geminiDiag }
+      : undefined;
 
     if (reply) {
-      return NextResponse.json({ reply, provider: "gemini" });
+      return NextResponse.json({ reply, provider: "gemini", ...(diag ? { diag } : {}) });
     }
 
     // Empty reply → fall back to canned
@@ -267,6 +283,7 @@ export async function POST(req: NextRequest) {
       reply: cannedReply(message, company, lang),
       provider: "canned",
       note: "LLM returned empty content; using canned response.",
+      ...(diag ? { diag } : {}),
     });
   } catch (err: any) {
     console.error("[chat] LLM call failed:", err?.message || err);
@@ -274,6 +291,9 @@ export async function POST(req: NextRequest) {
       reply: cannedReply(message, company, lang),
       provider: "canned",
       note: "LLM unavailable or timed out; using canned response.",
+      ...(diagRequested
+        ? { diag: { keyConfigured: Boolean(process.env.GEMINI_API_KEY), gemini: geminiDiag } }
+        : {}),
     });
   }
 }
