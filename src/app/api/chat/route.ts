@@ -126,10 +126,15 @@ function cannedReply(userMessage: string, c: LiveCompanyInfo, lang: ChatLang): s
 }
 
 // ---------------------------------------------------------------------------
-// Google Gemini API call (OpenAI-compatible endpoint, no SDK needed)
+// Google Gemini API call — native generateContent endpoint, x-goog-api-key auth.
+// NOT the OpenAI-compatible route (/v1beta/openai + Authorization: Bearer):
+// since mid-2026 Google AI Studio issues keys in the new AQ.Ab8… format, and
+// those keys are rejected (400/401) on the OpenAI-compatible route while the
+// native route accepts both AQ. and legacy AIza keys via x-goog-api-key.
 // ---------------------------------------------------------------------------
 const LLM_TIMEOUT_MS = 30_000;
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+const GEMINI_GENERATE_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 async function callGeminiLLM(messages: Array<{ role: string; content: string }>): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -142,17 +147,25 @@ async function callGeminiLLM(messages: Array<{ role: string; content: string }>)
   const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
   try {
-    const res = await fetch(`${GEMINI_BASE_URL}/chat/completions`, {
+    // Native format: system prompt → systemInstruction, history → contents
+    // (role "assistant" becomes "model" in the native API).
+    const systemTurn = messages[0]?.role === "system" ? messages[0] : undefined;
+    const rest = systemTurn ? messages.slice(1) : messages;
+    const res = await fetch(GEMINI_GENERATE_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
-        messages,
-        temperature: 0.7,
-        max_tokens: 512,
+        ...(systemTurn
+          ? { systemInstruction: { parts: [{ text: systemTurn.content }] } }
+          : {}),
+        contents: rest.map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        })),
+        generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
       }),
       signal: controller.signal,
     });
@@ -164,8 +177,20 @@ async function callGeminiLLM(messages: Array<{ role: string; content: string }>)
     }
 
     const data = await res.json();
-    const reply: string | undefined = data?.choices?.[0]?.message?.content;
-    return reply?.trim() || null;
+    const candidate = data?.candidates?.[0];
+    const reply: string | undefined = candidate?.content?.parts
+      ?.map((p: { text?: string }) => p.text || "")
+      .join("");
+    if (!reply?.trim()) {
+      const block = data?.promptFeedback?.blockReason;
+      console.error(
+        block
+          ? `[chat] Gemini blocked the prompt: ${block}`
+          : "[chat] Gemini returned empty content"
+      );
+      return null;
+    }
+    return reply.trim();
   } catch (err: any) {
     if (err?.name === "AbortError") {
       console.error(`[chat] Gemini call timed out after ${LLM_TIMEOUT_MS}ms`);
