@@ -133,8 +133,11 @@ function cannedReply(userMessage: string, c: LiveCompanyInfo, lang: ChatLang): s
 // native route accepts both AQ. and legacy AIza keys via x-goog-api-key.
 // ---------------------------------------------------------------------------
 const LLM_TIMEOUT_MS = 30_000;
-const GEMINI_GENERATE_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+// Model configurable via the GEMINI_MODEL env var — Google retires models over
+// time (gemini-2.0-flash was removed; API error 404 pointed to gemini-3.8-flash
+// as the replacement), so a future switch needs no code change.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+const GEMINI_GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 // Outcome of the last Gemini attempt — exposed only when the caller asks for
 // /api/chat?diag=1 (or body.diag=true). Never contains the API key itself.
