@@ -132,7 +132,7 @@ function cannedReply(userMessage: string, c: LiveCompanyInfo, lang: ChatLang): s
 // those keys are rejected (400/401) on the OpenAI-compatible route while the
 // native route accepts both AQ. and legacy AIza keys via x-goog-api-key.
 // ---------------------------------------------------------------------------
-const LLM_TIMEOUT_MS = 30_000;
+const LLM_TIMEOUT_MS = 15_000; // covers up to 2 attempts — keeps the function under Netlify's cap
 // Model configurable via the GEMINI_MODEL env var — Google retires models over
 // time (gemini-2.0-flash was removed; API error 404 pointed to gemini-3.8-flash
 // as the replacement), so a future switch needs no code change.
@@ -160,49 +160,61 @@ async function callGeminiLLM(messages: Array<{ role: string; content: string }>)
     // (role "assistant" becomes "model" in the native API).
     const systemTurn = messages[0]?.role === "system" ? messages[0] : undefined;
     const rest = systemTurn ? messages.slice(1) : messages;
-    const res = await fetch(GEMINI_GENERATE_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        ...(systemTurn
-          ? { systemInstruction: { parts: [{ text: systemTurn.content }] } }
-          : {}),
-        contents: rest.map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        })),
-        generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
-      }),
-      signal: controller.signal,
+    const payload = JSON.stringify({
+      ...(systemTurn
+        ? { systemInstruction: { parts: [{ text: systemTurn.content }] } }
+        : {}),
+      contents: rest.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      })),
+      generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
     });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error(`[chat] Gemini API error ${res.status}: ${errText.slice(0, 200)}`);
-      geminiDiag = `http-${res.status}: ${errText.slice(0, 180)}`;
-      return null;
-    }
+    // 503/429 = Google-side overload ("high demand"), usually temporary:
+    // retry once after a short pause. Auth/model errors are not retried.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const res = await fetch(GEMINI_GENERATE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: payload,
+        signal: controller.signal,
+      });
 
-    const data = await res.json();
-    const candidate = data?.candidates?.[0];
-    const reply: string | undefined = candidate?.content?.parts
-      ?.map((p: { text?: string }) => p.text || "")
-      .join("");
-    if (!reply?.trim()) {
-      const block = data?.promptFeedback?.blockReason;
-      console.error(
-        block
-          ? `[chat] Gemini blocked the prompt: ${block}`
-          : "[chat] Gemini returned empty content"
-      );
-      geminiDiag = block ? `empty-blocked:${block}` : "empty-content";
-      return null;
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        if ((res.status === 503 || res.status === 429) && attempt === 1) {
+          console.warn(`[chat] Gemini ${res.status} overloaded (attempt 1) — retrying in 2s`);
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
+        console.error(`[chat] Gemini API error ${res.status}: ${errText.slice(0, 200)}`);
+        geminiDiag = `http-${res.status} [${GEMINI_MODEL}]: ${errText.slice(0, 160)}`;
+        return null;
+      }
+
+      const data = await res.json();
+      const candidate = data?.candidates?.[0];
+      const reply: string | undefined = candidate?.content?.parts
+        ?.map((p: { text?: string }) => p.text || "")
+        .join("");
+      if (!reply?.trim()) {
+        const block = data?.promptFeedback?.blockReason;
+        console.error(
+          block
+            ? `[chat] Gemini blocked the prompt: ${block}`
+            : "[chat] Gemini returned empty content"
+        );
+        geminiDiag = block ? `empty-blocked:${block}` : "empty-content";
+        return null;
+      }
+      geminiDiag = "ok";
+      return reply.trim();
     }
-    geminiDiag = "ok";
-    return reply.trim();
+    return null;
   } catch (err: any) {
     if (err?.name === "AbortError") {
       console.error(`[chat] Gemini call timed out after ${LLM_TIMEOUT_MS}ms`);
