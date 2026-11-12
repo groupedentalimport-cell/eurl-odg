@@ -132,12 +132,14 @@ function cannedReply(userMessage: string, c: LiveCompanyInfo, lang: ChatLang): s
 // those keys are rejected (400/401) on the OpenAI-compatible route while the
 // native route accepts both AQ. and legacy AIza keys via x-goog-api-key.
 // ---------------------------------------------------------------------------
-const LLM_TIMEOUT_MS = 15_000; // covers up to 2 attempts — keeps the function under Netlify's cap
-// Model configurable via the GEMINI_MODEL env var — Google retires models over
-// time (gemini-2.0-flash was removed; API error 404 pointed to gemini-3.8-flash
-// as the replacement), so a future switch needs no code change.
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const ATTEMPT_TIMEOUT_MS = 7_000; // per model — two attempts fit Netlify's function budget
+// Model chain: primary configurable via GEMINI_MODEL env var (Google retires
+// models over time — gemini-2.0-flash was removed, the API 404 pointed to
+// gemini-3.8-flash). When the primary is overloaded (503/429/hang), the request
+// is retried once on GEMINI_FALLBACK_MODEL so the bot keeps answering "smart".
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-const GEMINI_GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash";
 
 // Outcome of the last Gemini attempt — exposed only when the caller asks for
 // /api/chat?diag=1 (or body.diag=true). Never contains the API key itself.
@@ -150,31 +152,33 @@ async function callGeminiLLM(messages: Array<{ role: string; content: string }>)
     console.warn("[chat] GEMINI_API_KEY not set — falling back to canned responses.");
     return null;
   }
-  geminiDiag = "requesting";
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+  // Native format: system prompt → systemInstruction, history → contents
+  // (role "assistant" becomes "model" in the native API).
+  const systemTurn = messages[0]?.role === "system" ? messages[0] : undefined;
+  const rest = systemTurn ? messages.slice(1) : messages;
+  const payload = JSON.stringify({
+    ...(systemTurn
+      ? { systemInstruction: { parts: [{ text: systemTurn.content }] } }
+      : {}),
+    contents: rest.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    })),
+    generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
+  });
 
-  try {
-    // Native format: system prompt → systemInstruction, history → contents
-    // (role "assistant" becomes "model" in the native API).
-    const systemTurn = messages[0]?.role === "system" ? messages[0] : undefined;
-    const rest = systemTurn ? messages.slice(1) : messages;
-    const payload = JSON.stringify({
-      ...(systemTurn
-        ? { systemInstruction: { parts: [{ text: systemTurn.content }] } }
-        : {}),
-      contents: rest.map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      })),
-      generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
-    });
+  const models =
+    GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL
+      ? [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]
+      : [GEMINI_MODEL];
+  const notes: string[] = [];
 
-    // 503/429 = Google-side overload ("high demand"), usually temporary:
-    // retry once after a short pause. Auth/model errors are not retried.
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      const res = await fetch(GEMINI_GENERATE_URL, {
+  for (const model of models) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -186,14 +190,9 @@ async function callGeminiLLM(messages: Array<{ role: string; content: string }>)
 
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
-        if ((res.status === 503 || res.status === 429) && attempt === 1) {
-          console.warn(`[chat] Gemini ${res.status} overloaded (attempt 1) — retrying in 2s`);
-          await new Promise((r) => setTimeout(r, 2000));
-          continue;
-        }
-        console.error(`[chat] Gemini API error ${res.status}: ${errText.slice(0, 200)}`);
-        geminiDiag = `http-${res.status} [${GEMINI_MODEL}]: ${errText.slice(0, 160)}`;
-        return null;
+        console.error(`[chat] Gemini API error ${res.status} on ${model}: ${errText.slice(0, 200)}`);
+        notes.push(`http-${res.status} [${model}]`);
+        continue; // next model in the chain
       }
 
       const data = await res.json();
@@ -205,28 +204,29 @@ async function callGeminiLLM(messages: Array<{ role: string; content: string }>)
         const block = data?.promptFeedback?.blockReason;
         console.error(
           block
-            ? `[chat] Gemini blocked the prompt: ${block}`
-            : "[chat] Gemini returned empty content"
+            ? `[chat] Gemini (${model}) blocked the prompt: ${block}`
+            : `[chat] Gemini (${model}) returned empty content`
         );
-        geminiDiag = block ? `empty-blocked:${block}` : "empty-content";
-        return null;
+        notes.push(block ? `blocked:${block} [${model}]` : `empty [${model}]`);
+        continue;
       }
-      geminiDiag = "ok";
+      geminiDiag = `ok [${model}]`;
       return reply.trim();
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        console.error(`[chat] Gemini ${model} timed out after ${ATTEMPT_TIMEOUT_MS}ms`);
+        notes.push(`timeout [${model}]`);
+      } else {
+        console.error(`[chat] Gemini ${model} call failed:`, err?.message || err);
+        notes.push(`error [${model}]`);
+      }
+    } finally {
+      clearTimeout(timer);
     }
-    return null;
-  } catch (err: any) {
-    if (err?.name === "AbortError") {
-      console.error(`[chat] Gemini call timed out after ${LLM_TIMEOUT_MS}ms`);
-      geminiDiag = `timeout:${LLM_TIMEOUT_MS}ms`;
-    } else {
-      console.error("[chat] Gemini call failed:", err?.message || err);
-      geminiDiag = `fetch-error: ${String(err?.message || err).slice(0, 120)}`;
-    }
-    return null;
-  } finally {
-    clearTimeout(timeout);
   }
+
+  geminiDiag = notes.join(" ; ") || "no-model-attempted";
+  return null;
 }
 
 // ---------------------------------------------------------------------------
