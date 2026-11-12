@@ -139,7 +139,9 @@ const ATTEMPT_TIMEOUT_MS = 7_000; // per model — two attempts fit Netlify's fu
 // gemini-3.8-flash). When the primary is overloaded (503/429/hang), the request
 // is retried once on GEMINI_FALLBACK_MODEL so the bot keeps answering "smart".
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash";
+// gemini-3.6-flash proved as overloaded as 3.8-flash (diag probe evidence),
+// so the fallback defaults to the lighter, usually less congested lite model.
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash-lite";
 
 // Outcome of the last Gemini attempt — exposed only when the caller asks for
 // /api/chat?diag=1 (or body.diag=true). Never contains the API key itself.
