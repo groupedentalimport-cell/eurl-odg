@@ -229,6 +229,42 @@ async function callGeminiLLM(messages: Array<{ role: string; content: string }>)
   return null;
 }
 
+// Minimal round-trip used by the ?diag=1 probe: same key, near-empty prompt.
+// Distinguishes "Google is slow because our prompt is big" (probe fast while
+// the main call is slow) from "Google is slow for everything on this key"
+// (probe slow too). Never returns the key itself.
+async function probeGemini(apiKey: string): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6_000);
+  const started = Date.now();
+  try {
+    const res = await fetch(`${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: "Réponds uniquement : OK" }] }],
+        generationConfig: { maxOutputTokens: 5 },
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      return `http-${res.status}: ${errText.slice(0, 120)}`;
+    }
+    const data = await res.json();
+    const text: string | undefined = data?.candidates?.[0]?.content?.parts
+      ?.map((p: { text?: string }) => p.text || "")
+      .join("");
+    return text?.trim() ? `ok ${Date.now() - started}ms` : `empty ${Date.now() - started}ms`;
+  } catch (err: any) {
+    return err?.name === "AbortError"
+      ? "timeout 6000ms"
+      : `error: ${String(err?.message || err).slice(0, 100)}`;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
@@ -285,9 +321,22 @@ export async function POST(req: NextRequest) {
     ];
 
     const reply = await callGeminiLLM(messages);
-    const diag = diagRequested
-      ? { keyConfigured: Boolean(process.env.GEMINI_API_KEY), gemini: geminiDiag }
-      : undefined;
+    let diag: Record<string, unknown> | undefined;
+    if (diagRequested) {
+      diag = {
+        keyConfigured: Boolean(process.env.GEMINI_API_KEY),
+        gemini: geminiDiag,
+        sizes: {
+          system: systemPrompt.length,
+          catalogue: catalogueCtx.length,
+          faq: faqCtx.length,
+          blog: blogCtx.length,
+        },
+      };
+      if (process.env.GEMINI_API_KEY) {
+        diag.probe = await probeGemini(process.env.GEMINI_API_KEY);
+      }
+    }
 
     if (reply) {
       return NextResponse.json({ reply, provider: "gemini", ...(diag ? { diag } : {}) });
